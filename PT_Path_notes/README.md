@@ -43,7 +43,5 @@ Check the execution to get the flag: a58ff8579f0a9270368d33a9966c7fd5
     Apr 29 06:38:29 vulnuniversity systemd[1]: Started Service 01.
     Apr 29 06:38:29 vulnuniversity bash[12889]: a58ff8579f0a9270368d33a9966c7fd5
 
-    
-
 
 
