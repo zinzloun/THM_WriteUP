@@ -997,7 +997,8 @@ The IP address refers to my VPN IP on tun0 interface. Then you can wait 5 minute
 
 
 ### Command injection VPN Server OVPN file generator form
-https://github.com/carlospolop/Auto_Wordlists/blob/main/wordlists/command_injection.txt
+The form to generate the OVPN file is vulnerable to command injection: https://github.com/carlospolop/Auto_Wordlists/blob/main/wordlists/command_injection.txt
+You can test it submitting the following value:
 
     $(`sleep 5`)
 
