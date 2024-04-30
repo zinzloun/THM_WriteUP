@@ -1,5 +1,5 @@
 # Red Team Capstone Challenge
-![Hack](back.jpg)
+![ ](back2.jpg)
 ## Recon phase
 ### 10.200.89.13 WEB Server
 I found possible list of usernames visiting the URL
