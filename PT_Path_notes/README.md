@@ -1,3 +1,6 @@
+# Penetration Test Path2Glory
+Following some notes I took facing some challange\box, so these are not write-up\walkthrough, often just an aspect is covered (e.g. privilege escalation). I took the notes since I discovered new tactics (sometime reading someone else blog or article) that I didn't know or even worse, I was not able to think :)
+
 ## Vulnversity
 ### Priv escalation
 Find SUID files on the victim
