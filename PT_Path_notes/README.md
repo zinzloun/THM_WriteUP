@@ -207,5 +207,6 @@ Now since RDP is enabled we can access alfred as catwoman user (set tls-seclevel
     xfreerdp /u:"alfred\catwoman" /v:10.10.36.188 /tls-seclevel:0
 
     
-
+### HackPark
+I created a more stable reverse shell using nc to exploit CVE-2019-6714. 
 
