@@ -29,7 +29,7 @@
  * You can download it from here: https://github.com/int0x33/nc.exe/raw/master/nc64.exe
  * Upload nc using the same procedure, the file must be named nc64.exe, then on the server the file will be saved on the following path:
  * C:\\inetpub\\wwwroot\\app_data\\files\\nc64.exe
- * eventaully you can change this this path on line 51
+ * eventaully you can change this this path on line 50
  *
  * Finally, the vulnerability is triggered by accessing the base URL for the
  * blog with a theme override specified like so:
