@@ -387,5 +387,24 @@ Check it out
 
 After a minute we should find a root.txt file containing the flag
 
+## Daily Bugle
+### Find Joomla versiom visit:
 
+    http://10.10.25.244/administrator/manifests/files/joomla.xml
+    ...
+    <version>3.7.0</version>
+      <creationDate>April 2017</creationDate>
+      <description>FILES_JOOMLA_XML_DESCRIPTION</description>
+    ...
+
+Alternative:
+
+    http://10.10.25.244/README.txt
+    ....
+    1- What is this?
+	* This is a Joomla! installation/upgrade package to version 3.x
+	* Joomla! Official site: https://www.joomla.org
+	* Joomla! 3.7 version history - https://docs.joomla.org/Joomla_3.7_version_history
+    
+  
 
