@@ -406,5 +406,15 @@ Alternative:
 	* Joomla! Official site: https://www.joomla.org
 	* Joomla! 3.7 version history - https://docs.joomla.org/Joomla_3.7_version_history
     
-  
+Search for exploit:
+
+	searchsploit "Joomla! 3.7"
+	....
+	Joomla! 3.7 - SQL Injection             php/remote/44227.php
+
+Load the php file into your web server with Php enabled (I used ver. 8.2.12), insert the base url: http://joomla.ip. 
+The exploit will return the user and the hashed password, the hash type is bcrypt, that corresponds to hashcat mode 3200.
+
+	hashcat.exe -m 3200 -a 0 hash_bcrypt.txt C:\Users\******\wordlist\rockyou.txt
+
 
