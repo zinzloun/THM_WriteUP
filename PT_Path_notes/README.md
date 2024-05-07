@@ -483,3 +483,65 @@ The SUID file to get a shell as root must be executed as follows:
  	HostKeyAlgorithms = +ssh-rsa
 	PubkeyAcceptedAlgorithms = +ssh-rsa
 Once terminated with this box undo the action since it is insecure
+
+## Relevant
+### Scan the services
+
+	nmap -A -sVC -T4 10.10.153.188 -v
+ ### Enumerate SMB
+
+ 	smbclient -L 10.10.153.188
+
+        Sharename       Type      Comment
+        ---------       ----      -------
+        ....
+        nt4wrksv        Disk      
+
+ 	
+  Connect to the share without password
+  
+  	smbclient //10.10.153.188/nt4wrksv
+	...
+	smb: \> ls
+	  .                                   D        0  Sat Jul 25 23:46:04 2020
+	  ..                                  D        0  Sat Jul 25 23:46:04 2020
+	  passwords.txt                       A       98  Sat Jul 25 17:15:33 2020
+
+                7735807 blocks of size 4096. 4950430 blocks available
+
+	smb: \> get passwords.txt 
+### Decode passwords
+
+	echo -n 'Qm9iIC0gIVBAJCRXMHJEITEyMw==' | base64 -d
+### Attack
+The credentials did not work for psexec neither for RDP. Since I was stuck at this point, I enumerated again searching for other services:
+
+	nmap -p- 10.10.153.188 -v
+	...
+ 	49663/tcp open  unknown
+	49667/tcp open  unknown
+	49669/tcp open  unknown
+
+Identify the new discovered services:
+
+	nmap -sVC -T4 10.10.153.188 -p 49663 49667 49669 -v
+	....
+ 	PORT      STATE SERVICE VERSION
+	49663/tcp open  http    Microsoft IIS httpd 10.0
+	|_http-server-header: Microsoft-IIS/10.0
+	|_http-title: IIS Windows Server
+	| http-methods: 
+	|   Supported Methods: OPTIONS TRACE GET HEAD POST
+	|_  Potentially risky methods: TRACE
+	Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Brute force directory
+
+	ffuf -u http://10.10.153.188:49663/FUZZ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -mc 200,301 -c
+	...
+ 	nt4wrksv                [Status: 301, Size: 159, Words: 9, Lines: 2, Duration: 72ms]
+
+Check if it is the shared folder we found before is actually mapped on the webserver:
+
+	
+	
