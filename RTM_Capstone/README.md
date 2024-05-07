@@ -80,7 +80,7 @@ we can notice that the form parameters are passed using GET, that's a very bad c
 	Operating systems Ubuntu
 ## Attack
 
-I created a [password list](pwd_list), based on the one provided during the engagement, adding the complexity criteria as indicated, you can find the bash script [here](https://github.com/zinzloun/Infosec-scripts-tools/blob/master/bash/crunch_from_list.sh) to generate the list. The user list is the one we obtained in the recon phase, applying the password policy for TheReserve is the following:
+I created a password list, based on the one provided during the engagement, adding the complexity criteria as indicated, you can find the bash script [here](https://github.com/zinzloun/Infosec-scripts-tools/blob/master/bash/crunch_from_list.sh) to generate the list (crunch is required). The user list is the one we obtained in the recon phase, applying TheReserve password policy as following:
 
 * At least 8 characters long
 * At least 1 number
