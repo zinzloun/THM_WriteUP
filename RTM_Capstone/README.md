@@ -1,6 +1,6 @@
 # Red Team Capstone Challenge
 ![ ](back2.jpg)
-version 1.2
+<br>Version 1.2
 ## Intro
 Having followed the Red Teamer pathway, the natural conclusion is to face this challenge. The challenge is very hard (of course it depends of your skills, for me it was) but it's a great fun and, above all, a great opportunity to learn. I tried (and passed) other exam\course like eLearning and Virtual hacking labs, but here the quality is really higher (again this is only my opinion, THM does not pay me :)), but as explained in the exam engagement, all the techniques necessary to reach the final goal are covered during the Red Teamer course. I fixed a personal goal too: be as stealth as possible, that involved to:
 1. Not using Mimikatz since it is flagged by Defender even if it is executed from an exluded folder
