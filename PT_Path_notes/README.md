@@ -578,7 +578,9 @@ Then we can execute the following command to get a shell as system:
 	C:\Windows\system32>whoami
  	nt authority\system
 
-More information: https://itm4n.github.io/printspoofer-abusing-impersonate-privileges/
+More information: https://itm4n.github.io/printspoofer-abusing-impersonate-privileges.
+Here you can check which <i>potatoes</i> still works: https://hideandsec.sh/books/windows-sNL/page/in-the-potato-family-i-want-them-all
+
 
 	
 	
