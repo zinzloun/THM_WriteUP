@@ -593,6 +593,35 @@ https://itm4n.github.io/printspoofer-abusing-impersonate-privileges.
 https://hideandsec.sh/books/windows-sNL/page/in-the-potato-family-i-want-them-all
 
 ## Internal
+### Scan
+Using rustscan to perform a fast all port scan
 
+	rustscan -a internal.thm --ulimit 5000 
 	
+	Open 10.10.213.134:22
+	Open 10.10.213.134:80
+	...
+	Scanned at 2024-05-08 11:27:55 CEST for 0s
 	
+	PORT   STATE SERVICE REASON
+	22/tcp open  ssh     syn-ack ttl 63
+	80/tcp open  http    syn-ack ttl 63
+
+The you can check vulnerabilities with nmap
+
+	nmap -sVC -A -v internal.thm -Pn -p 80 22 --script vuln
+
+ ### Privilege escalation
+ Search for password or credentials (whole disk, takes very long)
+
+ 	grep -Ril "password\|CredentiaL" /home /etc /opt /var/www 2>/dev/null
+	.... 
+  	/opt/wp-save.txt
+	....
+We found aubreanna:bubb13guM!@#123 then we can connect using SSH.
+
+### Lateral movement
+I used ligolo-ng instead of SSH tunnell.
+
+  	
+
