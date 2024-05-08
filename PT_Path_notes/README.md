@@ -592,6 +592,7 @@ https://itm4n.github.io/printspoofer-abusing-impersonate-privileges.
 2. Here you can check which <i>potatoes</i> still works at the moment (05.2024): 
 https://hideandsec.sh/books/windows-sNL/page/in-the-potato-family-i-want-them-all
 
+## Internal
 
 	
 	
