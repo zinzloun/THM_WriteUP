@@ -380,12 +380,7 @@ So we proceed as follows:
     ...
     -rw-rw-rw- 1 www-data www-data    32 May  3 05:20 getFlag.sh
 
-Check it out
-  
-    ls -la /bin/bash
-    -rwxr-xr-x 1 root root 1037528 Jul 12  2019 /bin/bash
-
-After a minute we should find a root.txt file containing the flag
+After a minute we should find the root.txt file containing the flag.
 
 ## Daily Bugle
 ### Find Joomla versiom visit:
