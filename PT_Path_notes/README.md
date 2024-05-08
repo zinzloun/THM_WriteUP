@@ -658,7 +658,9 @@ Again we search for juicy information:
 	/etc/services
 	/opt/note.txt
 
-See note
+See note and login as root
+
+	ssh root@internal.thm
  	
 
  	
