@@ -663,6 +663,6 @@ See note and login as root
 	ssh root@internal.thm
  	
 ## Buffer Overflow Prep
-Manual practice the first to challenge (Overflow1 and Overflow2), then you can auotomate it with this fantastic [tool](https://github.com/PakCyberbot/Buffer-Overflow-Assistant)
+Manual practice the first to challenge (Overflow1 and Overflow2), then you can auotomate it with this fantastic [tool](https://github.com/zinzloun/Buffer-Overflow-Assistant) -> To be merged
 
  	
