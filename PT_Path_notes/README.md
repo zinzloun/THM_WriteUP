@@ -706,6 +706,8 @@ Login to the ftp server and downloads the files:
 	08-29-19  10:26PM                43747 chatserver.exe
 	08-29-19  10:27PM                30761 essfunc.dll
 	226 Transfer complete.
+ 	ftp> binary 
+	200 Type set to I.
 	ftp> get chatserver.exe 
 	local: chatserver.exe remote: chatserver.exe
 	200 EPRT command successful.
@@ -727,5 +729,6 @@ Login to the ftp server and downloads the files:
 	ftp> exit
 	221 Goodbye.
                                                                   
-Move the file into an adeguate Win box with Immunity Dbg installed (I used Win7x86 vm).
+Move the file into an adeguate Win box with Immunity Dbg installed (I used Win7x86 vm). Before to get the files remember set the binary mode.
+
 	
