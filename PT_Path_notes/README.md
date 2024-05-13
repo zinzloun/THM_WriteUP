@@ -665,4 +665,67 @@ See note and login as root
 ## Buffer Overflow Prep
 Manual practice the first to challenge (Overflow1 and Overflow2), then you can auotomate it with this fantastic [tool](https://github.com/zinzloun/Buffer-Overflow-Assistant) -> To be merged
 
- 	
+## Brainstorm
+Scan the server
+
+	rustscan -a 10.10.159.147 -b 1000
+	...
+	Open 10.10.159.147:21
+	Open 10.10.159.147:3389
+	Open 10.10.159.147:9999
+
+Fingerprint the discovered services:
+
+	nmap -sVC -A -p 21 3389 9999 10.10.159.147 -Pn
+ 	...
+  	PORT   STATE SERVICE VERSION
+	21/tcp open  ftp     Microsoft ftpd
+	| ftp-anon: Anonymous FTP login allowed (FTP code 230)
+Login to the ftp server and downloads the files:
+
+	ftp 10.10.159.147
+	Connected to 10.10.159.147.
+	220 Microsoft FTP Service
+	Name (10.10.159.147:zinz): anonymous
+	331 Anonymous access allowed, send identity (e-mail name) as password.
+	Password: <hit enter>
+	230 User logged in.
+	Remote system type is Windows_NT.
+	ftp> passive
+	Passive mode: off; fallback to active mode: off.
+	ftp> ls
+	200 EPRT command successful.
+	125 Data connection already open; Transfer starting.
+	08-29-19  08:36PM       <DIR>          chatserver
+	226 Transfer complete.
+	ftp> cd chatserver
+	250 CWD command successful.
+	ftp> ls
+	200 EPRT command successful.
+	125 Data connection already open; Transfer starting.
+	08-29-19  10:26PM                43747 chatserver.exe
+	08-29-19  10:27PM                30761 essfunc.dll
+	226 Transfer complete.
+	ftp> get chatserver.exe 
+	local: chatserver.exe remote: chatserver.exe
+	200 EPRT command successful.
+	125 Data connection already open; Transfer starting.
+	100% |******************************************************************************************************************************************| 43747       94.27 KiB/s    00:00 ETA
+	226 Transfer complete.
+	WARNING! 45 bare linefeeds received in ASCII mode.
+	File may not have transferred correctly.
+	43747 bytes received in 00:00 (93.88 KiB/s)
+	ftp> get essfunc.dll
+	local: essfunc.dll remote: essfunc.dll
+	200 EPRT command successful.
+	125 Data connection already open; Transfer starting.
+	100% |******************************************************************************************************************************************| 30761      108.11 KiB/s    00:00 ETA
+	226 Transfer complete.
+	WARNING! 32 bare linefeeds received in ASCII mode.
+	File may not have transferred correctly.
+	30761 bytes received in 00:00 (107.51 KiB/s)
+	ftp> exit
+	221 Goodbye.
+                                                                  
+Move the file into an adeguate Win box with Immunity Dbg installed (I used Win7x86 vm).
+	
