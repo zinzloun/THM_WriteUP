@@ -729,6 +729,9 @@ Login to the ftp server and downloads the files:
 	ftp> exit
 	221 Goodbye.
                                                                   
-Move the file into an adeguate Win box with Immunity Dbg installed (I used Win7x86 vm). Before to get the files remember set the binary mode.
+Move the file into an adeguate Win box with Immunity Dbg installed (I used Win7x86 vm). Before to get the files from ftp serverv remember set the binary mode.
+Perform the usual BOF operations locally, then using the BOF-Assistant you can directly exploit it as follows:
+
+	python3 BOF-Assistant.py  <brainstorm IP> 9999 -e
 
 	
