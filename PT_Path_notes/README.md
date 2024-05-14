@@ -734,4 +734,50 @@ Perform the usual BOF operations locally, then using the BOF-Assistant you can d
 
 	python3 BOF-Assistant.py  <brainstorm IP> 9999 -e
 
+## Gatekeeper
+As usual scan the server:
+
+	rustscan -a 10.10.52.172 -b 1000
+ 	PORT      STATE SERVICE       REASON
+	135/tcp   open  msrpc         syn-ack ttl 127
+	139/tcp   open  netbios-ssn   syn-ack ttl 127
+	445/tcp   open  microsoft-ds  syn-ack ttl 127
+	3389/tcp  open  ms-wbt-server syn-ack ttl 127
+	31337/tcp open  Elite         syn-ack ttl 127
+	49152/tcp open  unknown       syn-ack ttl 127
+	49153/tcp open  unknown       syn-ack ttl 127
+	49154/tcp open  unknown       syn-ack ttl 127
+	49160/tcp open  unknown       syn-ack ttl 127
+	49161/tcp open  unknown       syn-ack ttl 127
+	49167/tcp open  unknown       syn-ack ttl 127
+
+Enum shares:
+
+	nmap --script smb-enum-shares.nse -p445 10.10.52.172
+ 	...
+  	|   \\10.10.52.172\Users: 
+	|     Type: STYPE_DISKTREE
+	|     Comment: 
+	|     Anonymous access: <none>
+	|_    Current user access: READ
+
+Access the users shared folder and download the exe file:
+
+	smbclient \\\\10.10.52.172\\Users
+	Password for [WORKGROUP\zinz]:
+	Try "help" to get a list of possible commands.
+	smb: \> ls
+	 ..
+	  Share                               D        0  Fri May 15 03:58:07 2020
+	
+	                7863807 blocks of size 4096. 3878840 blocks available
+	smb: \> cd Share\
+	smb: \Share\> ls
+	  ..
+	
+	                7863807 blocks of size 4096. 3878840 blocks available
+	smb: \Share\> get gatekeeper.exe 
+	getting file \Share\gatekeeper.exe of size 13312 as gatekeeper.exe (22.7 KiloBytes/sec) (average 22.7 KiloBytes/sec)
+
+
 	
