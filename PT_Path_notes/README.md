@@ -730,7 +730,7 @@ Login to the ftp server and downloads the files:
 	221 Goodbye.
                                                                   
 Move the file into an adeguate Win box with Immunity Dbg installed (I used Win7x86 vm). Before to get the files from ftp serverv remember set the binary mode.
-Perform the usual BOF operations locally, then using the BOF-Assistant you can directly exploit it as follows:
+Perform the usual BOF operations locally, you will notice that the vulnerable input is the second, chat message, so you need to send a string (username) in advance before the exploit. BOF-Assistant will help you with that. Once discovered the BOF needed information locally you can directly exploit Brainstorm as follows:
 
 	python3 BOF-Assistant.py  <brainstorm IP> 9999 -e
 
@@ -779,5 +779,10 @@ Access the users shared folder and download the exe file:
 	smb: \Share\> get gatekeeper.exe 
 	getting file \Share\gatekeeper.exe of size 13312 as gatekeeper.exe (22.7 KiloBytes/sec) (average 22.7 KiloBytes/sec)
 
+Try to interact with gatekeeper service locally:
 
+	nc <local IP>  31337        
+	aaa
+	Hello aaa!!!
+Load it in Immunity and perform local BOF assesment
 	
