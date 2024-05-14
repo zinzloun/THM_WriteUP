@@ -853,6 +853,12 @@ Then execute the python script:
 	Username: 'mayor'
 	Password: '8CL7O1N78MdrCIsV'
 
+You can connect through RDP now:
+
+	xfreerdp /v:10.10.129.130 /tls-seclevel:0 /u:mayor /p:8CL7O1N78MdrCIsV
+
+
+	
 
  	
 	
