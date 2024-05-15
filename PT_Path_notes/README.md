@@ -928,3 +928,9 @@ Then we can execute the following (use which command you prefer for manual)
 	-  (press RETURN)!/bin/bash
 	!/bin/bash
 	root@brainpan:/usr/share/man# 
+
+## Corp
+If AppLocker is configured with default AppLocker rules, we can bypass it by placing our executable in the following directory:
+
+	C:\Windows\System32\spool\drivers\color
+ This is whitelisted by default. 
