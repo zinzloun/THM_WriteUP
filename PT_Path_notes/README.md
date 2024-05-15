@@ -519,7 +519,7 @@ The credentials did not work for psexec neither for RDP. Since I was stuck at th
 
 Identify the new discovered services:
 
-	nmap -sVC -T4 10.10.153.188 -p 49663 49667 49669 -v
+	nmap -sVC -T4 10.10.153.188 -p 49663,49667,49669 -v
 	....
  	PORT      STATE SERVICE VERSION
 	49663/tcp open  http    Microsoft IIS httpd 10.0
@@ -609,7 +609,7 @@ Using rustscan to perform a fast all port scan
 
 The you can check vulnerabilities with nmap
 
-	nmap -sVC -A -v internal.thm -Pn -p 80 22 --script vuln
+	nmap -sVC -A -v internal.thm -Pn -p 80,22 --script vuln
 
  ### Privilege escalation
  Search for password or credentials (whole disk, takes very long)
@@ -676,7 +676,7 @@ Scan the server
 
 Fingerprint the discovered services:
 
-	nmap -sVC -A -p 21 3389 9999 10.10.159.147 -Pn
+	nmap -sVC -A -p 21,3389,9999 10.10.159.147 -Pn
  	...
   	PORT   STATE SERVICE VERSION
 	21/tcp open  ftp     Microsoft ftpd
@@ -843,7 +843,7 @@ So create the needed directories:
 Then move the files over there:
 
 	 mv cert9.db cookies.sqlite key4.db logins.json /root/.mozilla/firefox
-Then execute the python script:
+Execute the python script again:
 
 	python firefox_decrypt.py
 	2024-05-14 17:45:42,737 - WARNING - profile.ini not found in /root/.mozilla/firefox
@@ -851,16 +851,24 @@ Then execute the python script:
 	
 	Website:   https://creds.com
 	Username: 'mayor'
-	Password: '8CL7O1N78MdrCIsV'
+	Password: 'xxxxxxxxxxxxxxx'
 
 You can connect through RDP now:
 
-	xfreerdp /v:10.10.129.130 /tls-seclevel:0 /u:mayor /p:8CL7O1N78MdrCIsV
+	xfreerdp /v:10.10.129.130 /tls-seclevel:0 /u:mayor /p:xxxxxxxxxxxxxxx
 
 
-	
+## Brainpan 1
+Scan the box:
 
- 	
+	rustscan -a <brainpan IP> -b 900
+	...
+ 	PORT      STATE SERVICE          REASON
+	9999/tcp  open  abyss            syn-ack ttl 63
+	10000/tcp open  snet-sensor-mgmt syn-ack ttl 63
+
+ Fingerprint the services:
+ 
 	
 
 	
