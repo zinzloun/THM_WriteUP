@@ -1083,8 +1083,8 @@ WordPress version 5.2.1 is running
  Visiting the URL
 
  	http://10.10.106.56/retro/?author=1
-  We can find the user name: <b>Wade</b>
-  
+We can find the user name: <b>Wade</b>. Even in this case the login form reported an error specific for a wrong password
+
 
 
 
