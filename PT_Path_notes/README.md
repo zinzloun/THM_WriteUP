@@ -1045,8 +1045,46 @@ Then we can spawn a new shell as root (note that EUDI, effective user id is root
 	# id
 	uid=1002(robot) gid=1002(robot) euid=0(root) groups=0(root),1002(robot)
 
+## Retro
+We have a web server and RDP connection as services:
 
+	PORT     STATE SERVICE       VERSION
+	80/tcp   open  http          Microsoft IIS httpd 10.0
+	| http-methods: 
+	|_  Potentially risky methods: TRACE
+	|_http-server-header: Microsoft-IIS/10.0
+	|_http-title: IIS Windows Server
+	3389/tcp open  ms-wbt-server Microsoft Terminal Services
+	|_ssl-date: 2024-05-16T10:10:23+00:00; -15s from scanner time.
+	| ssl-cert: Subject: commonName=RetroWeb
+	| Not valid before: 2024-05-15T09:54:27
+	|_Not valid after:  2024-11-14T09:54:27
+	| rdp-ntlm-info: 
+	|   Target_Name: RETROWEB
+	|   NetBIOS_Domain_Name: RETROWEB
+	|   NetBIOS_Computer_Name: RETROWEB
+	|   DNS_Domain_Name: RetroWeb
+	|   DNS_Computer_Name: RetroWeb
+	|   Product_Version: 10.0.14393
+	|_  System_Time: 2024-05-16T10:10:18+00:00
+	Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
 
+Fuzzing the web server
+
+	ffuf -u http://10.10.106.56/FUZZ -mc 200,301 -w /usr/share/dirbuster/wordlists/directory-list-2.3-medium.txt -c
+ 	...
+	retro                   [Status: 301, Size: 149, Words: 9, Lines: 2, Duration: 354ms]
+
+WordPress version 5.2.1 is running
+
+	wpscan --url http://10.10.106.56/retro --api-token xxxxxxxxxxxx
+
+ There are quite a lot of vulnerabilities returned but as often happens they are not applicable. 
+ Visiting the URL
+
+ 	http://10.10.106.56/retro/?author=1
+  We can find the user name: <b>Wade</b>
+  
 
 
 
