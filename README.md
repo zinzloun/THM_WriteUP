@@ -290,7 +290,7 @@ Id' like to understand what I'm doing of course. In the end I hit this interesti
 The most important fact, in the context of our excercise, is the fact that a mistake in configuring the routs, either intentionally or as a malicious act, can lead to poisoning the traffic and send the packets to the wrong destination, leading to hijack the system. BGP protocol does not implement any mechanism to discern modified or rogue information recived by other peers. So BGP hijacking is sending traffic to a different destination than the real intended one to intercept the packets. That comes exactly to what we want.
 
 ### Hijack the BGP communication
-Coming back to the router we compromised, we can inspect the BGOP configuration:
+Coming back to the router we compromised, we can inspect the BGP configuration:
 
     cat /etc/quagga/bgpd.conf
     !
@@ -320,7 +320,7 @@ From the configuration we can notice that:
 - our compromised router is identified as <b>router bgp with AS 60001, attached to the eth2 </b>
 - the AS neighbors are 60002 -> 172.16.12.102  and 60003 -> 172.16.31.103
 
-We can further verify the configuration accessing Vtysh, the integrated shell for Quagga routing software.
+We can further verify the configuration accessing Vtysh, the integrated shell of Quagga routing software.
 
     vtysh
     Hello, this is Quagga (version 1.2.4).
@@ -346,7 +346,7 @@ Here I made the assumption (confirmed reading other write-up), that the traffic 
 - eth0: 172.16.2.0/24 is directed to 172.16.12.102 (AS 60002)
 - eth2: 172.16.3.0/24 is directed to 172.16.31.103 (AS 60003)
 
-So here we need just to add these two networks to the BGP AS 60001, the configuration of our router, with  a smaller range (/25) than the current /24, so they will be set as preferred path:
+So here we need just to add these two networks to the BGP AS 60001, the configuration of our router, with a smaller range (/25) than the current (/24), so they will be set as preferred path:
 
     vtysh
     ... 
@@ -383,7 +383,7 @@ Then repeat the configuration steps above and that should be ok:
     Configuration saved to /etc/quagga/bgpd.conf
     [OK] 
 
-Then clear up the routes and re-advertise the new networks:
+Then clear up the routes and re-advertise for the new networks:
     
     router1.ctx.ctf# clear ip bgp * out
     clear ip bgp * out
