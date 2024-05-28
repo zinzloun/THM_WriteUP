@@ -317,7 +317,7 @@ Coming back to the router we compromised, we can inspect the BGOP configuration:
        ...
 
 From the configuration we can notice that:
-- our compromised router is identified as <b>router bgp with AS 60001, attached to the eth2 interface</b>
+- our compromised router is identified as <b>router bgp with AS 60001, attached to the eth2 </b>
 - the AS neighbors are 60002 -> 172.16.12.102  and 60003 -> 172.16.31.103
 
 We can further verify the configuration accessing Vtysh, the integrated shell for Quagga routing software.
@@ -342,11 +342,11 @@ We can further verify the configuration accessing Vtysh, the integrated shell fo
     	Foreign host: 172.16.31.103, Foreign port: 37018
     	Nexthop: 172.16.31.101
 
-Here I made the assumption (confirmed reading other write-up), that the traffic we are interested is flowing between AS 60002 and AS 60003. We also know from the routing table that the traffic for the networks interfaces:
+Here I made the assumption (confirmed reading other write-up), that the traffic we are interested is flowing between AS 60002 and AS 60003. We also know, inspecting the routing table, the related networks interfaces:
 - eth0: 172.16.2.0/24 is directed to 172.16.12.102 (AS 60002)
 - eth2: 172.16.3.0/24 is directed to 172.16.31.103 (AS 60003)
 
-So here we need just to add these two networks to the BGP AS 60001, the configuration of our router, with  a smaller range (725) than the current /24, so they will be set as preferred path:
+So here we need just to add these two networks to the BGP AS 60001, the configuration of our router, with  a smaller range (/25) than the current /24, so they will be set as preferred path:
 
     vtysh
     ... 
