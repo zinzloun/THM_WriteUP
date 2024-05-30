@@ -581,8 +581,19 @@ Then I use the list to fuzz:
     /heapdump (Status: 200)
     ...
 
-Let's visit the accessible endpoints (200)
+Let's visit the accessible endpoints (200). I found that mappings endpoint reveleas useful informations about others endpoints:
 
+    	
+        /webjars/**	
+        /**	
+        /**/favicon.ico	
+        {[/admin-creds],methods=[GET]}	
+        {[/admin-flag],methods=[GET]}	
+        {[/token]}	
+        {[/isOnline]}	
+        {[/error],produces=[text/html]}
+        ...
+Especially admin-creds and admin-creds sounds really promising. Of course try to access them directly result in 403 (forbidden). We got this error from NGIX.
 
     
 
