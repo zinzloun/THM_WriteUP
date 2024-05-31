@@ -694,7 +694,10 @@ So we can see that ngix has validated (and upgraded) our request. Now we can try
     Host: 10.10.227.168:8080
 
     
-We will get the flag and the credentials back!
+We will get the flag and the credentials back! At this point, of course, I proceeded to login to
+
+
+Once logged in we land on a chat system, sending some messages to Jack we didn't get any answer. Let's proceed to analyze the request in Burp.
 
 
     
