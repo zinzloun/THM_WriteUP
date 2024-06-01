@@ -694,10 +694,37 @@ So we can see that ngix has validated (and upgraded) our request. Now we can try
     Host: 10.10.227.168:8080
 
     
-We will get the flag and the credentials back! At this point, of course, I proceeded to login to
+We will get the flag and the credentials back! At this point, of course, I proceeded to login to the previous found login page:
+
+    
 
 
-Once logged in we land on a chat system, sending some messages to Jack we didn't get any answer. Let's proceed to analyze the request in Burp.
+Once logged in we land on a chat system. We can read that Jack is warning us that the time to escape has come, sending some messages to Jack we didn't get any answer. Maybe is too late :).
+Let's proceed to analyze the request generated sending message in Burp. We can see that the protocol is HTTP/2 and that a proxy should be in place since we got the Age header in the back response, knowing that the challenge is on smuggling, the logical next step is to try a downgrade to HTTP/1, since is not possible to smuggle a HTTP/2 request abusing CL or TE. I suggest to read this great [resource](https://portswigger.net/research/http2) written by the mythic James Kettle. 
+In Burp repeater disable automatic upgrade content length and in the inspector column, open the Request attributes section and change the protocol to HTTP/1. Send the request again:
+
+    POST /send_message HTTP/1.1
+    Host: 10.10.27.141:80
+    Cookie: session=eyJ1c2VybmFtZSI6ImhBY2tMSUVOIn0.Zlslsw.qrosNPxrgZVhoRtJU50693s3qLA
+    ...
+    Te: trailers
+    
+    data=Jack, ci sei?
+
+And we got a response:
+
+    HTTP/1.1 200 OK
+    ...
+    Age: 0
+    Server: El Bandito Server
+    ...
+    Connection: keep-alive
+    
+    {"status":"Message received and stored successfully"}
+    
+So it seems possible to downgrade the request, in this case we can try different [techiniques](https://portswigger.net/web-security/request-smuggling/advanced) to try to exploit this scenario. I started with H2.CL (in repeater remember to switch back to HTTP/2). 
+
+    
 
 
     
