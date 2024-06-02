@@ -754,7 +754,8 @@ Some notes in case the payload will not work:
 
        GET /getMessages HTTP/2
      You should get the flag inside the JSON response inside the JSON body
-4. You should try a couple of time to succeed, in case after 3 attempts you didn't get the flag try to restart El Bandito, in my case solved the problem.       
+4. You should try a couple of time to succeed, in case after 3 attempts you didn't get the flag try to restart El Bandito, in my case solved the problem.
+5. The flag has an ecoded character that you need to decode before to submit the flag.     
 
 
 
