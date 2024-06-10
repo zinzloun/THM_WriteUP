@@ -757,7 +757,86 @@ Some notes in case the payload will not work:
 4. You should try a couple of time to succeed, in case after 3 attempts you didn't get the flag try to restart El Bandito, in my case solved the problem.
 5. The flag has an ecoded character that you need to decode before to submit the flag.     
 
+## Holo
+Connect to VPN and check your route:
 
+    10.200.95.0     10.50.74.1      255.255.255.0   UG    1000   0        0 tun0
+
+Check your IP
+
+    tun0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1500
+        inet 10.50.74.35  netmask 255.255.255.0  destination 10.50.74.35
+
+Start to identify hosts:
+
+    Nmap scan report for 10.200.95.33
+    Host is up (0.084s latency).
+    Nmap scan report for 10.200.95.250
+    Host is up (0.084s latency).
+
+
+Fast check open ports for the 2 hosts:
+
+    rustscan -b 900 -a 10.200.95.33 10.200.95.250
+    ... 250
+    PORT     STATE SERVICE REASON
+    22/tcp   open  ssh     syn-ack
+    1337/tcp open  waste   syn-ack
+    ... 33
+    PORT      STATE SERVICE REASON
+    22/tcp    open  ssh     syn-ack
+    80/tcp    open  http    syn-ack
+    33060/tcp open  mysqlx  syn-ack
+
+Identify services on .33
+
+    sudo nmap -sVC -n -v -p 80,22,3306 10.200.95.33
+    ...
+    80/tcp   open   http    Apache httpd 2.4.29 ((Ubuntu))
+    |_http-generator: WordPress 5.5.3
+    |_http-server-header: Apache/2.4.29 (Ubuntu)
+    | http-robots.txt: 21 disallowed entries (15 shown)
+    | /var/www/wordpress/index.php 
+    | /var/www/wordpress/readme.html /var/www/wordpress/wp-activate.php 
+    | /var/www/wordpress/wp-blog-header.php /var/www/wordpress/wp-config.php 
+    | /var/www/wordpress/wp-content /var/www/wordpress/wp-includes 
+    | /var/www/wordpress/wp-load.php /var/www/wordpress/wp-mail.php 
+    | /var/www/wordpress/wp-signup.php /var/www/wordpress/xmlrpc.php 
+    | /var/www/wordpress/license.txt /var/www/wordpress/upgrade 
+    |_/var/www/wordpress/wp-admin /var/www/wordpress/wp-comments-post.php
+    | http-methods: 
+    |_  Supported Methods: GET HEAD POST OPTIONS
+    |_http-title: holo.live
+    ...
+
+We focus on the webserver. Inspecting the home page we can see that the main image is not loaded since it use the hostname of the server, since we cannot resolve it, let's add the following to the host file:
+
+    echo "10.200.95.33    www.holo.live" >> /etc/hosts
+
+As suggested we can now try to discover other VHost
+
+    ffuf -u http://10.200.95.33 -H "Host:FUZZ.holo.live" -w subdomains-top1million-110000.txt -t 3 -fw 1288
+    ...
+    www                     [Status: 200, Size: 21405, Words: 1285, Lines: 156, Duration: 105ms]
+    dev                     [Status: 200, Size: 7515, Words: 639, Lines: 272, Duration: 69ms]
+    admin                   [Status: 200, Size: 1845, Words: 453, Lines: 76, Duration: 71ms]
+    www.www                 [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 84ms]
+    ....
+
+
+The fw command helps to filter false positive responses, that I don't know why, return 200 for every  word in the list.
+
+    -fw                 Filter by amount of words in response. Comma separated list of word counts and ranges
+
+
+    
+
+
+
+
+
+
+    
 
 
 
