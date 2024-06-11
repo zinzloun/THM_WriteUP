@@ -1240,7 +1240,15 @@ Start the tunnell from ligolo console using the new tun interfaces
     [Agent : root@ip-10-200-95-33] » tunnel_start --tun ligolo2
     [Agent : root@ip-10-200-95-33] » INFO[7943] Starting tunnel to root@ip-10-200-95-33      
 
-Then we can start to interact directly with the services for each hosts. I started with S-SRV01.holo.live visiting the hosted site:
+Then we can start to interact directly with the services for each hosts. I started to check PC-FILESRV01 to get a comprehensive view of the target system's SMB environment:
+
+    enum4linux -a 10.200.95.35
+    ...
+    [E] Server doesn't allow session using username '', password ''.  Aborting remainder of tests.
+
+Same thing trying with the other hosts, so there aren't shares that allows non-authenticated access. Then I proceeded to inspect the web site hostend on S-SRV01.
+
+    
 
     
 
