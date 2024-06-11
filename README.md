@@ -877,7 +877,7 @@ We can get the OS version as well:
 
     http://admin.holo.live/dashboard.php?cmd=cat%20/etc/*rel*
 
-     <h4 class="card-title"> DISTRIB_ID=Ubuntu
+    <h4 class="card-title"> DISTRIB_ID=Ubuntu
     DISTRIB_RELEASE=18.04
     DISTRIB_CODENAME=bionic
     DISTRIB_DESCRIPTION="Ubuntu 18.04.5 LTS"
@@ -896,11 +896,12 @@ For sake of learning this is the decoded command used:
 
 The IP refers to my tun0 interface, of course.
 
-Once I got a shell, running ip config we can see that we are inside the subnet 
+Once I got a shell, inspecting network configuration we can see that we are inside the network
 
-    192.168.100.0   0.0.0.0         255.255.255.0
+    192.168.100.0/24
 
-Our IP is .100.
+Our IP is 192.168.100.100
+
 ### Flag submission 1
 In /var subdirs you can find the first flag.
 
@@ -976,7 +977,7 @@ Since the uid for zeus is set to 0, we are root.
 ### Flag submissions 2 and 3
 You can find these flags.
 
-Futher investigate the server we can notice we <i>escaped</i> from a DOcker containers:
+Futher investigate the server we notice we landed on the web-server that hosts a Docker container, since the ssh server is active on the Docker interface as well (very insecure configuration):
 
     ifconfig 
     br-19e3b4fa18b8: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
@@ -985,12 +986,16 @@ Futher investigate the server we can notice we <i>escaped</i> from a DOcker cont
     eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 9001
         inet 10.200.95.33  netmask 255.255.255.0  broadcast 10.200.95.255
 
-We can notice that using SSH, through docker interface, we were able to login on the host machine. From this host we can perform a further host discovery on the 10.200.95.0/24 subnet. Luckily nmap is already installed on the server:
+This configuration permtis us to access the server directly from the attacker machine, through the VPN, without the need of use ligolo tunnell:
+
+    ssh zeus@10.200.95.33
+
+From this host we can perform a further host discovery on the 10.200.95.0/24 subnet. Luckily nmap is already installed on the server:
 
     root@ip-10-200-95-33:~# whereis nmap
     nmap: /usr/bin/nmap /usr/share/nmap /usr/share/man/man1/nmap.1.gz
 
-We can proceed to perform an hosts discovery from the server (please note that we have already performed this scan through the VPN in the initial phase 
+We can proceed to perform an hosts discovery from the server. <b>Note that we have already performed this scan through the VPN in the initial phase, but we were not able to reach all the available hosts</b>
 
     nmap -sn  10.200.95.0/24
     Starting Nmap 7.80 ( https://nmap.org ) at 2024-06-11 07:35 UTC
@@ -1213,7 +1218,7 @@ From the above results we can infer that
 - .35 is probably a windows file server PC-FILESRV01
 - .250 is *nix box having hosting SSH server
 
-
+To easely proceed with the operations we can create a second tunnell to reach the subnet directly with Ligolo.
 
     
 
