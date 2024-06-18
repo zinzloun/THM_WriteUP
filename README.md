@@ -1396,7 +1396,6 @@ Add routes for the hosts (dont'use the whole /24 networks since it will conflict
 Start the tunnell from ligolo console using the new tun interfaces
     
     [Agent : root@ip-10-200-95-33] » tunnel_start --tun ligolo2
-    [Agent : root@ip-10-200-95-33] » INFO[7943] Starting tunnel to root@ip-10-200-95-33      
 
 Then we can start to interact directly with the services for each hosts. I started to check PC-FILESRV01 to get a comprehensive view of the target system's SMB environment:
 
@@ -1660,11 +1659,27 @@ So now visting the agent URL from PC-FILESRV01:
 
     http://10.200.95.33:8000
 
-Our web server will respond.
+Our web server will respond. Now we can proceed to download winpeas, then we can execute it:
 
-    
-    
+    C:\Users\watamet\Music>winPEASx64_ofs.exe
+    This program is blocked by group policy. For more information, contact your system administrator.
 
+Oh no! We cant. Since we are not administrators we can't modify the security policy, so we have to find another tool.    
+Neither seatbelt works:
+
+    C:\Users\watamet\Music>Seatbelt.exe
+    This program is blocked by group policy. For more information, contact your system administrator.
+
+Ok, let's try something using powershell, since AMSI seems not enabled:
+
+    PS C:\Users\watamet> "mimikatz"
+    mimikatz
+
+At this point I tried with PrivescCheck, that works quite well. The command below generate an HTML report, very useful.
+
+    PS C:\Users\watamet\Music> powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_$($env:COMPUTERNAME) -Format HTML"
+
+Nothin really important emerged. At this point I was stuck! 
     
 
 
