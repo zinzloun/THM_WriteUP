@@ -1005,7 +1005,7 @@ Inspecting the dump file we can found actually another user (that will be useful
     ...
     LOCK TABLES `users` WRITE;
     /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-    INSERT INTO `users` VALUES ('admin','BBBBBBBBBBBBBBBB'),('gurag','AAAA');
+    INSERT INTO `users` VALUES ('admin','!123SecureAdminDashboard321!'),('gurag','AAAA');
     ...
 
 Using the same approch we could try to create a reverse shell on the remote host (.1), since mysql user has the permission to write to  /var/www/wordpress location. First we can connect to the remote MySql DBMS:
