@@ -892,7 +892,7 @@ For sake of learning this is the decoded command used:
 
 The IP refers to my tun0 interface, of course.
 
-Once I got a shell, inspecting network configuration we can see that we are inside the network
+Once I got a shell, inspecting network configuration:
 
     eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
         inet 192.168.100.100  netmask 255.255.255.0
