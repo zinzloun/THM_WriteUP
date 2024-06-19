@@ -1719,12 +1719,18 @@ The other server (S-SRV02) inside the network cannot be use as target since SMB 
 
     listener_add --addr 0.0.0.0:445 --to 127.0.0.1:445 --tcp
 
-Now we need to perform an invasive action, since we are going to stop lanmanserver service and reboot the system in order to free port 445
+Now we need to perform an invasive action, since we are going to stop lanmanserver service (and related services) and reboot the system in order to free port 445:
 
+   
     sc stop lanmanserver
-    sc config lanmanserver start=disabled
+    sc config lanmanserver start= disabled
+   
 
-Then reboot. Once the machine comes up again we can verify that SMB is off:
+Then reboot:
+
+    shutdown -r -t 0
+
+Once the machine comes up again we can verify that SMB is off:
 
     netstat -an | findstr :445
 
