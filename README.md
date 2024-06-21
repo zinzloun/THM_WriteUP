@@ -4,6 +4,7 @@
 ## [HOLO](https://github.com/zinzloun/THM_WriteUP/tree/main/holo)
 ## [Borderlands](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#borderlands)
 ## [El Bandito](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#el-bandito-1)
+## [Reset](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#reset)
 
 
 ## Borderlands
