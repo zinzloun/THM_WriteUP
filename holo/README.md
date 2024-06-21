@@ -1,4 +1,4 @@
-## Holo
+## Holo.live
 
 ### Notes
 I didn't follow Tryhackme lab walk-through, so if you follows this write up you will be able to discover only the flags (Task 4). Neither I use metasploit, as usual I try to avoid this tool. I used Ligolo-NG to implement pivoting and port forwarding. This really a great tool and I suggest everyone to use it.
