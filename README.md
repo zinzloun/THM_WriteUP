@@ -2,9 +2,9 @@
 ## [Offensive Pentesting path](https://github.com/zinzloun/THM_WriteUP/tree/main/PT_Path_notes)
 ## [RedTeam Capstone Challange](https://github.com/zinzloun/THM_WriteUP/tree/main/RTM_Capstone)
 ## [HOLO](https://github.com/zinzloun/THM_WriteUP/tree/main/holo)
-## [Borderlands](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#borderlands)
+## [Borderlands](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#borderlands-1)
 ## [El Bandito](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#el-bandito-1)
-## [Reset](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#reset)
+## [Reset](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#reset-1)
 
 
 ## Borderlands
