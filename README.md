@@ -754,7 +754,75 @@ Some notes in case the payload will not work:
 4. You should try a couple of time to succeed, in case after 3 attempts you didn't get the flag try to restart El Bandito, in my case solved the problem.
 5. The flag has an ecoded character that you need to decode before to submit the flag.     
 
+## Reset
+Services discovery
 
+    rustscan -b 900 -a 10.10.58.22 
+    Open 10.10.58.22:53
+    Open 10.10.58.22:88
+    Open 10.10.58.22:135
+    Open 10.10.58.22:139
+    Open 10.10.58.22:389
+    Open 10.10.58.22:445
+    Open 10.10.58.22:464
+    Open 10.10.58.22:593
+    Open 10.10.58.22:636
+    Open 10.10.58.22:3268
+    Open 10.10.58.22:3269
+    Open 10.10.58.22:3389
+    Open 10.10.58.22:5985
+    Open 10.10.58.22:7680
+    Open 10.10.58.22:9389
+    Open 10.10.58.22:49669
+    Open 10.10.58.22:49670
+    Open 10.10.58.22:49671
+    Open 10.10.58.22:49674
+    Open 10.10.58.22:49675
+    Open 10.10.58.22:49698
+    Open 10.10.58.22:49707
+
+    
+
+Quite a lot of services are active. Starting to fingerprint some services:
+
+    nmap -p 53,389,3389,445 -Pn 10.10.58.22 -sVC -v
+    ...
+    PORT     STATE SERVICE       VERSION
+    53/tcp   open  domain        Simple DNS Plus
+    389/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: thm.corp0., Site: Default-First-Site-Name)
+    445/tcp  open  microsoft-ds?
+    3389/tcp open  ms-wbt-server Microsoft Terminal Services
+    |_ssl-date: 2024-06-21T15:25:37+00:00; +48s from scanner time.
+    | rdp-ntlm-info: 
+    |   Target_Name: THM
+    |   NetBIOS_Domain_Name: THM
+    |   NetBIOS_Computer_Name: HAYSTACK
+    |   DNS_Domain_Name: thm.corp
+    |   DNS_Computer_Name: HayStack.thm.corp
+    |   DNS_Tree_Name: thm.corp
+    |   Product_Version: 10.0.17763
+    |_  System_Time: 2024-06-21T15:24:57+00:00
+    | ssl-cert: Subject: commonName=HayStack.thm.corp
+    | Issuer: commonName=HayStack.thm.corp
+    | Public Key type: rsa
+    | Public Key bits: 2048
+    | Signature Algorithm: sha256WithRSAEncryption
+    | Not valid before: 2024-01-25T21:01:31
+    | Not valid after:  2024-07-26T21:01:31
+    | MD5:   1593:b46f:8770:a73a:9649:f3ec:e9ad:c968
+    |_SHA-1: 9d45:4568:8ee5:2758:e3cc:26ff:e0ca:23db:5ae6:017e
+    Service Info: Host: HAYSTACK; OS: Windows; CPE: cpe:/o:microsoft:windows
+    
+    Host script results:
+    | smb2-security-mode: 
+    |   3:1:1: 
+    |_    Message signing enabled and required
+    |_clock-skew: mean: 48s, deviation: 0s, median: 47s
+    | smb2-time: 
+    |   date: 2024-06-21T15:25:01
+    |_  start_date: N/A
+
+From the above result we can see that SMB ise enabled and required, so we can't perform ntlm relay attack. The machine FQDN is HayStack.thm.corp, the domain is thm.corp.
 
 
 
