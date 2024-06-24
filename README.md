@@ -888,6 +888,8 @@ If we wait some time we can notice that the 3 files names are changed:
 I took a quick look to the files but they dont' reveal any useful information. Since there is an active traffic on this shares, we can try to upload some payload.
 Ref. https://www.securify.nl/blog/living-off-the-land-stealing-netntlm-hashes/
 
+    sudo responder -I eth0 -v
+
 
 
     
