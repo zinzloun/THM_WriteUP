@@ -758,15 +758,6 @@ Some notes in case the payload will not work:
 5. The flag has an ecoded character that you need to decode before to submit the flag.     
 
 ## Reset
-### Final notes 
-The illustrated technique to steal  the NTLMv2 hash is working in a real enviroment to this date (june 2024). I have tested three payloads gerated with [NTLM theft](https://github.com/Greenwolf/ntlm_theft) 
-- docx
-- xlsx
-- url
-
-For my user inside a fake a domain. All the 3 files warned about something you have to enable (docx and xlsx) or trusting the source for the url file. Once clicked the payload is executed for all the filese the first time. If you open again the docx or xslx these file are disarmed and the payload is not executed anymore, the .url keeps executing. The scenarion has been tested on a WIN11 Professional box, fully updated with Windows Defender.
-
-
 
 Services discovery
 
@@ -838,6 +829,14 @@ Quite a lot of services are active. Starting to fingerprint some services:
 From the above result we can see that SMB ise enabled and required, so we can't perform ntlm relay attack. The machine FQDN is HayStack.thm.corp, the domain is thm.corp.
 
 
+
+### Final notes 
+The illustrated technique to steal  the NTLMv2 hash is working in a real enviroment to this date (june 2024). I have tested three payloads gerated with [NTLM theft](https://github.com/Greenwolf/ntlm_theft) 
+- docx
+- xlsx
+- url
+
+For my user inside a fake a domain. All the 3 files warned about something you have to enable (docx and xlsx) or trusting the source for the url file. Once clicked the payload is executed for all the filese the first time. If you open again the docx or xslx these file are disarmed and the payload is not executed anymore, the .url keeps executing. The scenarion has been tested on a WIN11 Professional box, fully updated with Windows Defender.
 
 
     
