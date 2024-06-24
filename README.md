@@ -886,16 +886,8 @@ If we wait some time we can notice that the 3 files names are changed:
       yr1ezwhu.khh.pdf                    A  3032659  Mon Jul 17 10:12:09 2023
 
 I took a quick look to the files but they dont' reveal any useful information. Since there is an active traffic on this shares, we can try to upload some payload.
+Ref. https://www.securify.nl/blog/living-off-the-land-stealing-netntlm-hashes/
 
-
-
-### Final notes 
-The illustrated technique to steal  the NTLMv2 hash is working in a real enviroment to this date (june 2024). I have tested three payloads gerated with [NTLM theft](https://github.com/Greenwolf/ntlm_theft) 
-- docx
-- xlsx
-- url
-
-For my user inside a fake a domain. All the 3 files warned about something you have to enable (docx and xlsx) or trusting the source for the url file. Once clicked the payload is executed for all the filese the first time. If you open again the docx or xslx these file are disarmed and the payload is not executed anymore, the .url keeps executing. The scenarion has been tested on a WIN11 Professional box, fully updated with Windows Defender.
 
 
     
