@@ -826,7 +826,66 @@ Quite a lot of services are active. Starting to fingerprint some services:
     |   date: 2024-06-21T15:25:01
     |_  start_date: N/A
 
-From the above result we can see that SMB ise enabled and required, so we can't perform ntlm relay attack. The machine FQDN is HayStack.thm.corp, the domain is thm.corp.
+From the above result we can see that SMB ise enabled and required, so we can't perform ntlm relay attack. The machine FQDN is HayStack.thm.corp, the domain is thm.corp. I proceed enumerating shared folders on the system:
+
+    smbclient -L \\thm.corp -I 10.10.182.100 -N       
+
+        Sharename       Type      Comment
+        ---------       ----      -------
+        ADMIN$          Disk      Remote Admin
+        C$              Disk      Default share
+        Data            Disk      
+        IPC$            IPC       Remote IPC
+        NETLOGON        Disk      Logon server share 
+        SYSVOL          Disk      Logon server share 
+
+
+Lets check the permission we have as anonymous user:
+
+    crackmapexec smb 10.10.182.100 --shares -u 'anonymous' -p ''
+    SMB         10.10.182.100   445    HAYSTACK         [*] Windows 10 / Server 2019 Build 17763 x64 (name:HAYSTACK) (domain:thm.corp) (signing:True) (SMBv1:False)
+    SMB         10.10.182.100   445    HAYSTACK         [+] thm.corp\anonymous: 
+    SMB         10.10.182.100   445    HAYSTACK         [+] Enumerated shares
+    SMB         10.10.182.100   445    HAYSTACK         Share           Permissions     Remark
+    SMB         10.10.182.100   445    HAYSTACK         -----           -----------     ------
+    SMB         10.10.182.100   445    HAYSTACK         ADMIN$                          Remote Admin
+    SMB         10.10.182.100   445    HAYSTACK         C$                              Default share
+    SMB         10.10.182.100   445    HAYSTACK         Data            READ,WRITE      
+    SMB         10.10.182.100   445    HAYSTACK         IPC$            READ            Remote IPC
+    SMB         10.10.182.100   445    HAYSTACK         NETLOGON                        Logon server share 
+    SMB         10.10.182.100   445    HAYSTACK         SYSVOL                          Logon server share 
+
+So as anonymous user we have write permission on Data share. 
+Let's connect to the share:
+
+    smbclient  \\\\10.10.182.100\\Data                 
+    Password for [WORKGROUP\zinz]:
+    Try "help" to get a list of possible commands.
+    smb: \> ls
+      .                                   D        0  Mon Jun 24 13:58:05 2024
+      ..                                  D        0  Mon Jun 24 13:58:05 2024
+      onboarding                          D        0  Mon Jun 24 14:01:05 2024
+    
+                    7863807 blocks of size 4096. 3001878 blocks available
+    smb: \> cd onboarding\
+    smb: \onboarding\> ls
+      .                                   D        0  Mon Jun 24 14:01:35 2024
+      ..                                  D        0  Mon Jun 24 14:01:35 2024
+      5gwczexb.4pb.txt                    A      521  Mon Aug 21 20:21:59 2023
+      npm1cdb1.zwr.pdf                    A  4700896  Mon Jul 17 10:11:53 2023
+      obbfhlhw.wg4.pdf                    A  3032659  Mon Jul 17 10:12:09 2023
+    
+                    7863807 blocks of size 4096. 3001861 blocks available
+If we wait some time we can notice that the 3 files names are changed:
+
+    smb: \onboarding\> ls
+      .                                   D        0  Mon Jun 24 14:02:35 2024
+      ..                                  D        0  Mon Jun 24 14:02:35 2024
+      4bt5agvy.xc0.txt                    A      521  Mon Aug 21 20:21:59 2023
+      dgx3zcsl.kce.pdf                    A  4700896  Mon Jul 17 10:11:53 2023
+      yr1ezwhu.khh.pdf                    A  3032659  Mon Jul 17 10:12:09 2023
+
+I took a quick look to the files but they dont' reveal any useful information. Since there is an active traffic on this shares, we can try to upload some payload.
 
 
 
