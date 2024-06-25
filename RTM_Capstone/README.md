@@ -404,7 +404,7 @@ I managed to transfer <b>PingCastle</b> to the server from my attacker machine. 
 
 2. the printer spooler service is remotely accessible from corpdc
 
-As the repost states:
+As the report states:
 
 <i>When there's an account with unconstrained delegation configured (which is fairly common) and the Print Spooler service running on a computer, you can get that computers credentials sent to the system with unconstrained delegation as a user. With a domain controller, the TGT of the DC can be extracted allowing an attacker to reuse it with a DCSync attack and obtain all user hashes and impersonate them. The Print Spooler service should be deactivated on domain controllers</i>
  
