@@ -1,4 +1,5 @@
-# RA
+![Ra](ra.png)
+# RA 
 You have found WindCorp's internal network and their Domain Controller. Can you pwn their network?
 
 ## Services discovery
