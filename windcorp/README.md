@@ -616,67 +616,7 @@ Once a valid password is found the procedure will stop.
         X509v3 Key Usage: 90 
     Enter PEM pass phrase:
 
-<!-- ganteng
-
-    Verifying - Enter PEM pass phrase:
------BEGIN ENCRYPTED PRIVATE KEY-----
-MIIFNTBfBgkqhkiG9w0BBQ0wUjAxBgkqhkiG9w0BBQwwJAQQRlRfAIH3GQZWouCn
-i68BkAICCAAwDAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoEENssA7sqNTCmEHqu
-cG3Q4/AEggTQR2nji92YLJ/EXWEwQ3v4NindgBZQWqdzdYe98uBAQRRa1cWIQgsA
-qjsqN8cCjEdWyMc8QTOKgVLNPlh0DSgqqjl1pCuFBV3mxzsIzMDkE+mz2f3f8Wil
-HLn5SPdahUeDFZJhEICqKvsMg54m00uXs1bkWLSNUPv99HWsN1bSlUx1CcvtWuor
-tE29G5pQnaWr1P8XQUQe6nswG59NKJcEPM46WvrnW5xhnjxaBA0PbSfIfc+Dy8qj
-VEtCmfQROB+JDsgep2TOV9vjIuzvFWBcP495mPATs3MYo0A7+1lki67pa88JDMUr
-EprgsrNlONwgZBH157AsmgaY1nxeahUfwvO9MpDC9xk/s0Hmg1uSQ5TE8hmEodpE
-UbVvRhcLwaOjvW+ujnsxl5OJTPPf/g+M2+bvqmFJ5cR9xQvd9H6c9Or+S6ef45SG
-/V0CkMl8nAFg4VsBRnzEmUBx6/LC0ZNT9TBxeXfiCXhl2wuhfqRKNimLv6YadyN6
-SUdHMquPebiIgVq3RKyvCx9DjShdnC7VdhP39B0eP2Ut8yx4flwhWTpxGeue0wDm
-aNS/kK24XsU+nNPRFtT6M2eCkr0ifmTz4uPARvC16k8sT2/hc3t/QQIJvVFcKFja
-t4kvSOx/XpZYF4Y2pagsFsJNNYyXhxsWtpv1Zyn8lrE0hXxL6RnKPmUiVjeFv0Yw
-Cv+oqCNFY1np5EX/azANUpTAycWjnRnTIiRqsiGDgSQQEqqEILX83aDQGTrPKKLl
-OLKab94KzW/vPCUV93YsVpmjsF+4eiYyq523HNg7MYQ1q+4WkYTo3pStMv5Ihvjd
-Upd6GekE6McVOEmSU+P94218yq8iFYSvm/H0Ns5ABTizziatobkFnaj3cHdfOzZJ
-B2tfe/GMM+OLoZsSglR8b1XEFTzg3TrKTKyfKW4M9ts+Ox5XK+ntc/q3HBsWX1FN
-MSmbBkr8y+k+7SO0iViD5B6N6J3M3CWjXqK5BYcTbEf/d6s6KpwCgwda+xxBVoxt
-0AUN7CCb1A8rCei9VggjQstxFFksTVdXrxrzppJr+gKCyXaljTDKJKFYWjQk8e3J
-0AtlnVbKi0MSXdZs712Pj07b5WJMU3C55iqVonjTOlH1SZbFNcTL9fLRXt8mScGx
-yvay3MzghxtQbROu2UAWwsf4qLmRjuRTC1bj/IQKIAdjetyM9gEWl8K/rGEA+DIK
-o/K59pgbeQgi3nEWcR/L27umiF6nmtyEflhTd9sjF1j/iOvTTDo1q5wLezHyeJMw
-9Q0e3Up+Vi14grQbjWqrC2z6qQPQzfcra4OypE9ERF6YI50lt1hgVF0nXSbL/rep
-3S6Ocf6Sd4nxvfI6ETdIScE5/wg0PdkJoL27Snlt6+IJDtX928ESswDRtwiP8e21
-6uRyDv8o05ogpmdjEwa1UjC3N3FFPSYh3PX/lDnQhO49d8pbtHqHfGkscX+fcqE8
-kUUHNOmm4w3LI35atcjcivpPi75pGb7FzcwYee/qxstUwn+3yB7NpuwXclgwfHyJ
-rECgOumdk9ekqQ5xCxv9SgzNPkYavQGRVJxHS2pPg+FaDnjbIbbwehiag9RuWM3c
-Grz686PIgl5MZ/+irWu2K2ch/DYB79aUuaUKHe/qDhAcr5sZfBGtURE=
------END ENCRYPTED PRIVATE KEY-----
-Bag Attributes
-    localKeyID: 01 00 00 00 
-subject=CN=fire.windcorp.thm
-issuer=CN=fire.windcorp.thm
------BEGIN CERTIFICATE-----
-MIIDajCCAlKgAwIBAgIQUI2QvXTCj7RCVdv6XlGMvjANBgkqhkiG9w0BAQsFADAc
-MRowGAYDVQQDDBFmaXJlLndpbmRjb3JwLnRobTAeFw0yMDA1MjkwMzMxMDhaFw0y
-ODA1MjkwMzQxMDNaMBwxGjAYBgNVBAMMEWZpcmUud2luZGNvcnAudGhtMIIBIjAN
-BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv900af0f6n80F0J6U9jMgcwQrozr
-kXmi02esW1XAsHpWnuuMQDIN6AtiYmDcoFEXz/NteLI7T6PusqQ6SXqLBurTnR8V
-InPD3Qea6lxOXNjuNeqqZKHhUaXiwSaqtAB+GzPkNtevw3jeEj99ST/G1qwY9Xce
-sfeqR2J4kQ+8U5yKLJDPBxOSx3+SHjKErrLTk66lrlEi4atr+P/ccXA5TBkZFkYh
-i3YdKTDnYeP2fMrqvOqpw82eniHAGJ2N8JJbNep86ps8giIRieBUUclF/WCp4c33
-p4i1ioVxJIYJj6f0tjGhy9GxB7l69OtUutcIG0/FhxL2dQ86MmnHH0dE7QIDAQAB
-o4GnMIGkMA4GA1UdDwEB/wQEAwIFoDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYB
-BQUHAwEwVAYDVR0RBE0wS4IRZmlyZS53aW5kY29ycC50aG2CGHNlbGZzZXJ2aWNl
-LndpbmRjb3JwLnRobYIcc2VsZnNlcnZpY2UuZGV2LndpbmRjb3JwLnRobTAdBgNV
-HQ4EFgQUIZvYlCIhAOFLRutycf6U2H6LhqIwDQYJKoZIhvcNAQELBQADggEBAKVC
-ZS6HOuSODERi/glj3rPJaHCStxHPEg69txOIDaM9fX4WBfmSjn+EzlrHLdeRS22h
-nTPirvuT+5nn6xbUrq9J6RCTZJD+uFc9wZl7Viw3hJcWbsO8DTQAshuZ5YJ574pG
-HjyoVDOfYhy8/8ThvYf1H8/OaIpG4UIo0vY9qeBQBOPZdbdVjWNerkFmXVq+MMVf
-pAt+FffQE/48kTCppuSKeM5ZMgHP1/zhZqyJ3npljVDlgppjvh1loSYB+reMkhwK
-2gpGJNwxLyFDhTMLaj0pzFL9okqs5ovEWEj8p96hEE6Xxl4ZApv6mxTs9j2oY6+P
-MTUqFyYKchFUeYlgf7k=
------END CERTIFICATE-----
-
-
--->
+<!-- ganteng -->
 Then entering the same password we found even for the PEM pass phrase, we got the private key for subdomain fire.windcorp.thm 
 
     Verifying - Enter PEM pass phrase:
