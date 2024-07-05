@@ -440,7 +440,7 @@ Then I uploaded the file, wait a minute and get a shell again using buse user:
 So being administrator we can get the last flag in C:\users\administrator\desktop.
 
 ## Optional: export DPAPI Domain Backup Key
-### If you want to complite the series, you will need of that key to complete Osiris
+### If you want to complite Osiris, you will need of that key.
 I used the [CQTools suite](https://github.com/BlackDiverX/cqtools/tree/master) to accomplish this task. You can find the explanations on how to use these tools [here](https://github.com/BlackDiverX/cqtools/blob/master/bh-asia-2019_arsenal_whitepaper_paula_januszkiewicz_1.1.pdf).
 Here I used CQLsassSecretsDumper.exe
     
