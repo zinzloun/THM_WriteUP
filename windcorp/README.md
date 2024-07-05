@@ -1061,9 +1061,9 @@ Since winRM is enabled I tried the credential to get a remote shell on the syste
 So it seems that the user myrtleowe doesn't have the appropriate permission to access the shell. 
 Indeed with these credentials, we have access to a shared foleder Files:
 
-          smbmap -H set.windcorp.thm -u myrtleowe -p XXXXXXX
-          ...
-          [+] IP: 10.10.254.1:445 Name: set.windcorp.thm          Status: Authenticated
+        smbmap -H set.windcorp.thm -u myrtleowe -p XXXXXXX
+         ...
+        [+] IP: 10.10.254.1:445 Name: set.windcorp.thm          Status: Authenticated
         Disk                                                    Permissions     Comment
         ----                                                    -----------     -------
         ADMIN$                                                  NO ACCESS       Remote Admin
