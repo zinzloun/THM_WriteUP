@@ -458,6 +458,8 @@ Then download the file
 
 Keep the pfx file on your machine, since it will come in handy to solve Osiris!
 
+https://github.com/jesusgavancho/ivpn_osiris/blob/main/CQMasterKeyAD.exe
+
 ## Remove wine and i386 architecture
 Kill all the process related to Spark client
 
