@@ -11,8 +11,6 @@ Two final notes about this writeup:
 - There are no images
 - As required to submit the writeup the password, the hashes and the flags are not disclosed.
 
-Enjoy and thank you for reading.
-
 ## Recon phase
 ### 10.200.89.13 WEB Server
 I found possible list of usernames visiting the URL
