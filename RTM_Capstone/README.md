@@ -106,7 +106,7 @@ Login to the vpn portal using ahmed user and we can download a ovpn file. Using 
 
 	openvpn --config mohammad.ahmed\@corp.thereserve.loc.ovpn 
 
-Then checking the table route: 
+Then checking the route table:
 	
  	route -n
 
