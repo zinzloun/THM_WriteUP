@@ -235,7 +235,7 @@ List all the configured services (powershell) on wrk1
  	Get-WmiObject win32_service | select name, status, pathname, startmode, description, processid, startname, started, state | ogv
 ### Escalate privileges on the workstations
 
-Interesting enough there is a Backup service that presents an unquoted path<b>C:\Backup Service\Full Backup\backup.exe</b>, the service is manually started, let's check which permissions have the current user (laura) on the executable:
+Interesting enough there is a Backup service that presents an unquoted path <b>C:\Backup Service\Full Backup\backup.exe</b>, the service is manually started, let's check which permissions have the current user (laura) on the executable:
 
 	icacls "C:\Backup Service\Full Backup\backup.exe"
 		C:\Backup Service\Full Backup\backup.exe Everyone:(I)(F)
