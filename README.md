@@ -19,7 +19,7 @@
 - We have 180 seconds to try to brute force the token: use multi-threads
 - The server associates session's requests to your IP, after 7 wrong attempts we are redirected to the login page: use  x_forwarded_for header pretending each requests comes from a different IP
 - Once the token is found just use the PHPSessionID associated to update your cookie's value and you can procedd to update your password.
-- Found [here](./hammer/hmr_brute_token-py) a Python script to assist in the exploitation 
+- Found [here](./hammer/hmr_brute_token.py) a Python script to assist in the exploitation 
 ## Attacktive Directory
 ### Enumerate AD
 
