@@ -3,8 +3,7 @@ import random, ipaddress
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import re, os
 
-# Config
-ip_address = "10.10.250.195"
+ip_address = "10.10.250.195" # <-- changes this
 port = "1337"
 email = "tester@hammer.thm"
 
@@ -46,13 +45,11 @@ def send_request(code, phpsessid):
 
     headers = {
         "Host": f"{ip_address}:{port}",
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
         "Accept-Encoding": "gzip, deflate, br",
         "Content-Type": "application/x-www-form-urlencoded",
         "Origin": base_url,
-        "DNT": "1",
         "Connection": "keep-alive",
         "Referer": reset_url,
         "Upgrade-Insecure-Requests": "1",
