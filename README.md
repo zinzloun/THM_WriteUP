@@ -7,7 +7,11 @@
 ## [El Bandito](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#el-bandito-1)
 ## [Reset](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#reset-1)
 ## [Attacktive Directory](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#attacktive-directory)
-
+## Hammer
+- Rustscan to reduce services
+- nmap -svC to fingerprint found services
+- Fuzz the website, find a valid email address to recover the password
+### Recovery logic
 ## Attacktive Directory
 ### Enumerate AD
 
