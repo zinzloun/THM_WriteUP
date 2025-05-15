@@ -7,6 +7,8 @@
 ## [El Bandito](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#el-bandito-1)
 ## [Reset](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#reset-1)
 ## [Attacktive Directory](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#attacktive-directory)
+## [Hammer](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#hammer)
+
 ## Hammer
 - Rustscan to reduce services
 - nmap -sVC to fingerprint found services
@@ -19,7 +21,8 @@
 - We have 180 seconds to try to brute force the token: use multi-threads
 - The server associates session's requests to your IP, after 7 wrong attempts we are redirected to the login page: use  x_forwarded_for header pretending each requests comes from a different IP
 - Once the token is found just use the PHPSessionID associated to update your cookie's value and you can procedd to update your password.
-- Found [here](./hammer/hmr_brute_token.py) a Python script to assist in the exploitation 
+- Found [here](./hammer/hmr_brute_token.py) a Python script to assist in the exploitation
+ 
 ## Attacktive Directory
 ### Enumerate AD
 
