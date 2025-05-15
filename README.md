@@ -9,9 +9,17 @@
 ## [Attacktive Directory](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#attacktive-directory)
 ## Hammer
 - Rustscan to reduce services
-- nmap -svC to fingerprint found services
+- nmap -sVC to fingerprint found services
 - Fuzz the website, find a valid email address to recover the password
-### Recovery logic
+### Recovery password logic
+- Upon providing a valid email address, you have to insert a 4 digit token
+- You have 180 seconds to perfom the action
+- You have something like 7 attempts before your session is reset, but <b>tokens are not invalidated</b>
+### Logic attack
+- We have 180 seconds to try to brute force the token: use multi-threads
+- The server associates session's requests to your IP, after 7 wrong attempts we are redirected to the login page: use  x_forwarded_for header pretending each requests comes from a different IP
+- Once the token is found just use the PHPSessionID associated to update your cookie's value and you can procedd to update your password.
+- Found [here](./hammer/hmr_brute_token-py) a Python script to assist in the exploitation 
 ## Attacktive Directory
 ### Enumerate AD
 
