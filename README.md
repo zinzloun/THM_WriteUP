@@ -10,19 +10,32 @@
 ## [Hammer](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#hammer)
 
 ## Hammer
+## Flag 1
 - Rustscan to reduce services
 - nmap -sVC to fingerprint found services
 - Fuzz the website, find a valid email address to recover the password
-### Recovery password logic
+#### Recovery password logic
 - Upon providing a valid email address, you have to insert a 4 digit token
 - You have 180 seconds to perfom the action
 - You have something like 7 attempts before your session is reset, but <b>tokens are not invalidated</b>
-### Logic attack
+#### Logic attack
 - We have 180 seconds to try to brute force the token: use multi-threads
 - The server associates session's requests to your IP, after 7 wrong attempts we are redirected to the login page: use  x_forwarded_for header pretending each requests comes from a different IP
 - Once the token is found just use the PHPSessionID associated to update your cookie's value and you can procedd to update your password.
 - Found [here](./hammer/hmr_brute_token.py) a Python script to assist in the exploitation
- 
+
+## Flag 2
+- Once logged in we can execute only ls command
+- Session expires very fast on the dashboard, but the execute_command.php remains accessible
+- Send this page to Burp Repeater. A JWT token is trasmitted to the server
+- Issuing ls command we can notice the presence of a key file: 188ade1.key
+### Analyzing the token
+- Decoding the token we can notice that there is a kid claim that point to a file, that actually is very bad (ask to ChatGPT).
+- There is an interesting role in the data structure that can suggest a possible privilege escalation path
+
+## Logic attack
+- Try to get the 
+
 ## Attacktive Directory
 ### Enumerate AD
 
