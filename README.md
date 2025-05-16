@@ -34,7 +34,17 @@
 - There is an interesting role in the data structure that can suggest a possible privilege escalation path
 
 ## Logic attack
-- Try to get the 
+- Downlad the key file: http://<hammer_IP>:1337/188ade1.key
+- Open the file with Sublime if you use the attack box
+- We can guess that the key file is used to sign the JWT, so we change the kid value to point to the key we were able to download:
+
+  	   "kid": "/var/www/html/188ade1.key"
+- then change the role value to admin
+
+  	  "role": "admin"
+- use the key's value to sign the JWT
+- Use the obtained value to replace the bearer header and the token cookie values with the newly generated JWT in Burp Repeater
+- Submit POST /execute_command.php again and you should able to execute commands as admin now 
 
 ## Attacktive Directory
 ### Enumerate AD
