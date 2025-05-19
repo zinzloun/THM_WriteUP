@@ -11,7 +11,7 @@
 
 ## Hammer
 ## Flag 1
-- Rustscan to reduce services
+- Rustscan to find services
 - nmap -sVC to fingerprint found services
 - Fuzz the website, find a valid email address to recover the password
 #### Recovery password logic
