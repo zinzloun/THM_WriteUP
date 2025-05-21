@@ -4,10 +4,10 @@ IP = "10.10.158.207" # CHANGE THIS
 
 url = "http://" + IP + "/login.php"
 
-# =' Lista utenti da testare
+# user list to test
 user_list = ["admin", "secret", "john", "pedro"]
 
-# Charset usato per il brute force
+# Charset used to brute force 
 charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 headers = {
