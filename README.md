@@ -9,7 +9,7 @@
 ## [NoSQL injection](nosqlinj)
 ## [Attacktive Directory](#attacktive-directory-1)
 ## [Hammer](#hammer-1)
-## [Injectics](#injectis-1)
+## [Injectics](#injectics-1)
 
 
 ## Injectics
