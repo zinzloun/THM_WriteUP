@@ -9,6 +9,7 @@
 ## [NoSQL injection](https://github.com/zinzloun/THM_WriteUP/tree/main/nosqlinj)
 ## [Attacktive Directory](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#attacktive-directory)
 ## [Hammer](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#hammer-1)
+## [Injectics](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#injectis)
 
 
 ## Injectics
