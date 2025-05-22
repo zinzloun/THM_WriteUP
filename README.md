@@ -7,9 +7,9 @@
 ## [El Bandito](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#el-bandito-1)
 ## [Reset](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#reset-1)
 ## [NoSQL injection](https://github.com/zinzloun/THM_WriteUP/tree/main/nosqlinj)
-## [Attacktive Directory](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#attacktive-directory)
+## [Attacktive Directory](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#attacktive-directory-1)
 ## [Hammer](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#hammer-1)
-## [Injectics](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#injectis)
+## [Injectics](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#injectis-1)
 
 
 ## Injectics
