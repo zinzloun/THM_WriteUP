@@ -8,7 +8,8 @@
 ## [Reset](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#reset-1)
 ## [NoSQL injection](https://github.com/zinzloun/THM_WriteUP/tree/main/nosqlinj)
 ## [Attacktive Directory](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#attacktive-directory)
-## [Hammer](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#hammer)
+## [Hammer](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#hammer-1)
+
 
 ## Injectics
 
