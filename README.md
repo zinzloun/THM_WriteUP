@@ -1,14 +1,14 @@
 # THM Write-UPs
 ## [Windcorp](windcorp)
-## [Offensive Pentesting path](https://github.com/zinzloun/THM_WriteUP/tree/main/PT_Path_notes)
-## [RedTeam Capstone Challange](https://github.com/zinzloun/THM_WriteUP/tree/main/RTM_Capstone)
-## [HOLO](https://github.com/zinzloun/THM_WriteUP/tree/main/holo)
-## [Borderlands](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#borderlands-1)
-## [El Bandito](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#el-bandito-1)
-## [Reset](https://github.com/zinzloun/THM_WriteUP?tab=readme-ov-file#reset-1)
-## [NoSQL injection](https://github.com/zinzloun/THM_WriteUP/tree/main/nosqlinj)
+## [Offensive Pentesting path](PT_Path_notes)
+## [RedTeam Capstone Challange](RTM_Capstone)
+## [HOLO](holo)
+## [Borderlands](#borderlands-1)
+## [El Bandito](#el-bandito-1)
+## [Reset](#reset-1)
+## [NoSQL injection](nosqlinj)
 ## [Attacktive Directory](#attacktive-directory-1)
-## [Hammer](https://github.com/zinzloun/THM_WriteUP/blob/main/README.md#hammer-1)
+## [Hammer](#hammer-1)
 ## [Injectics](#injectis-1)
 
 
